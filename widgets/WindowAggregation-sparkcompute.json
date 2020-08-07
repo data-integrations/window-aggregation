@@ -1,0 +1,157 @@
+{
+  "metadata": {
+    "spec-version": "1.5",
+    "label": "Window Aggregation"
+  },
+  "display-name": "Window Aggregation",
+  "configuration-groups": [
+    {
+      "label": "Partition definition",
+      "properties": [
+        {
+          "label": "Partition fields",
+          "name": "partitionFields",
+          "widget-type": "csv",
+          "widget-attributes": {}
+        },
+        {
+          "label": "Order",
+          "name": "partitionOrder",
+          "widget-type": "keyvalue-dropdown",
+          "widget-attributes": {
+            "delimiter": ",",
+            "kv-delimiter": ":",
+            "dropdownOptions": [
+              "Ascending",
+              "Descending"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "Window Frame definition",
+      "properties": [
+        {
+          "label": "Frame Type",
+          "name": "windowFrameType",
+          "widget-type": "radio-group",
+          "widget-attributes": {
+            "layout": "inline",
+            "default": "NONE",
+            "options": [
+              {
+                "id": "ROW",
+                "label": "Row"
+              },
+              {
+                "id": "RANGE",
+                "label": "Range"
+              },
+              {
+                "id": "NONE",
+                "label": "None"
+              }
+            ]
+          }
+        },
+        {
+          "label": "Unbounded preceding",
+          "name": "unboundedPreceding",
+          "widget-type": "toggle",
+          "widget-attributes": {
+            "on": {
+              "value": "true",
+              "label": "Yes"
+            },
+            "off": {
+              "value": "false",
+              "label": "No"
+            },
+            "default": "false"
+          }
+        },
+        {
+          "label": "Unbounded following",
+          "name": "unboundedFollowing",
+          "widget-type": "toggle",
+          "widget-attributes": {
+            "on": {
+              "value": "true",
+              "label": "Yes"
+            },
+            "off": {
+              "value": "false",
+              "label": "No"
+            },
+            "default": "false"
+          }
+        },
+        {
+          "label": "Preceding",
+          "name": "preceding",
+          "widget-type": "textbox"
+        },
+        {
+          "label": "Following",
+          "name": "following",
+          "widget-type": "textbox"
+        }
+      ]
+    },
+    {
+      "label": "Aggregate definition",
+      "properties": [
+        {
+          "label": "Aggregates",
+          "name": "aggregates",
+          "widget-type": "dsv",
+          "widget-attributes": {
+            "delimiter": "\n"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Advanced",
+      "properties": [
+        {
+          "label": "Number of partitions",
+          "name": "numberOfPartitions",
+          "widget-type": "number"
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "name": "Preceding",
+      "condition": {
+        "expression": "unboundedPreceding == false"
+      },
+      "show": [
+        {
+          "name": "preceding"
+        }
+      ]
+    },
+    {
+      "name": "Following",
+      "condition": {
+        "expression": "unboundedFollowing == false"
+      },
+      "show": [
+        {
+          "name": "following"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "schema",
+      "label": "schema",
+      "widget-type": "schema"
+    }
+  ]
+}
