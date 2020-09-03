@@ -1,4 +1,4 @@
-# GroupBy Aggregate
+# Window Aggregation
 
 
 Description
