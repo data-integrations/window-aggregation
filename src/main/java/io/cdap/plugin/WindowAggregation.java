@@ -33,6 +33,7 @@ import io.cdap.cdap.etl.api.batch.SparkExecutionPluginContext;
 import io.cdap.cdap.etl.api.batch.SparkPluginContext;
 import io.cdap.cdap.etl.api.lineage.field.FieldOperation;
 import io.cdap.cdap.etl.api.lineage.field.FieldTransformOperation;
+import io.cdap.plugin.function.DiscretePercentile;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.Column;
@@ -283,8 +284,13 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
 
     List<WindowAggregationConfig.FunctionInfo> aggregatesData = config.getAggregates();
 
+
     for (WindowAggregationConfig.FunctionInfo aggregatesDatum : aggregatesData) {
-      data = apply(aggregatesDatum, data, spec);
+      if (aggregatesDatum.getFunction() == WindowAggregationConfig.Function.DISCRETE_PERCENTILE) {
+        data = applyCustomFunction(sqlContext, aggregatesDatum, data, spec, inputSchema);
+      } else {
+        data = apply(aggregatesDatum, data, spec);
+      }
     }
 
     JavaRDD<StructuredRecord> rowJavaRDD = data.javaRDD().map(new RowToRecord(outputSchema));
@@ -297,13 +303,39 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     }
 
     return sparkExecutionPluginContext.getSparkContext().parallelize(rowJavaRDD.collect(),
-                                                                   Integer.parseInt(numberOfPartitionsString));
+                                                                     Integer.parseInt(numberOfPartitionsString));
   }
 
   private Dataset<Row> apply(WindowAggregationConfig.FunctionInfo data, Dataset<Row> dataFrame,
                              WindowSpec spec) {
     Column aggregateColumn = getAggregateColumn(data).over(spec);
     return dataFrame.withColumn(data.getAlias(), aggregateColumn);
+  }
+
+  private Dataset<Row> applyCustomFunction(SQLContext sqlContext, WindowAggregationConfig.FunctionInfo aggregatesDatum,
+                                           Dataset<Row> dataFrame, WindowSpec spec, Schema inputSchema) {
+    String[] args = aggregatesDatum.getArgs();
+    if (args.length < 1) {
+      throw new InvalidParameterException("Discrete Percentile must have at least 1 arguments");
+    }
+
+    String percentileString = args[0];
+    Double percentile;
+    try {
+      percentile = Double.valueOf(percentileString);
+    } catch (NumberFormatException e) {
+      throw new InvalidParameterException("Discrete Percentile, first argument must be double value");
+    }
+
+    if (percentile > 1 || percentile < 0) {
+      throw new InvalidParameterException("Discrete Percentile, percentile must be in range 0.0-1.0");
+    }
+
+    Schema.Type type = schemaTypeForInputField(inputSchema, aggregatesDatum.getFieldName());
+    DiscretePercentile discretePercentile = new DiscretePercentile(percentile, type);
+    sqlContext.udf().register("DISCRETE_PERCENTILE", discretePercentile);
+
+    return apply(aggregatesDatum, dataFrame, spec);
   }
 
   private Column getAggregateColumn(WindowAggregationConfig.FunctionInfo data) {
@@ -327,6 +359,9 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
         String arg = args[0];
         Column lit = functions.lit(arg);
         return functions.callUDF("percentile", functions.col(data.getFieldName()), lit);
+      }
+      case DISCRETE_PERCENTILE: {
+        return functions.callUDF("DISCRETE_PERCENTILE", functions.col(data.getFieldName()));
       }
       case LEAD: {
         checkFunctionArguments(args, 1, "LEAD");
@@ -363,6 +398,24 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
       throw new InvalidParameterException(
         String.format("%s must have at least %s arguments", function, minimumArguments));
     }
+  }
+
+  private Schema.Type schemaTypeForInputField(Schema inputSchema, String inputFieldName) {
+    if (inputSchema == null) {
+      return null;
+    }
+
+    Schema.Field schemaField = inputSchema.getField(inputFieldName);
+    if (schemaField == null) {
+      return null;
+    }
+
+    Schema schema = schemaField.getSchema();
+    if (schema == null) {
+      return null;
+    }
+
+    return schema.isNullable() ? schema.getNonNullable().getType() : schema.getType();
   }
 
   /**

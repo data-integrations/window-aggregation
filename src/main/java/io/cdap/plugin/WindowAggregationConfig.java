@@ -318,12 +318,14 @@ public class WindowAggregationConfig extends PluginConfig {
     ROW_NUMBER(null, Schema.nullableOf(Schema.of(Schema.Type.INT))),
     MEDIAN(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
     CONTINUOUS_PERCENTILE(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
+    DISCRETE_PERCENTILE(numericSchema(), null),
     LEAD(null, null),
     LAG(null, null),
     FIRST(null, null),
     LAST(null, null),
     CUMULATIVE_DISTRIBUTION(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
     ACCUMULATE(numericSchema(), null);
+
 
     /**
      * @param allowedInputSchema allowed input field schema type where function can be applied,
