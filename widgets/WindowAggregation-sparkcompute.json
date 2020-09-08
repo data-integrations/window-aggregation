@@ -125,6 +125,26 @@
   ],
   "filters": [
     {
+      "name": "Bounds",
+      "condition": {
+        "expression": "windowFrameType != 'NONE'"
+      },
+      "show": [
+        {
+          "name": "unboundedPreceding"
+        },
+        {
+          "name": "unboundedFollowing"
+        },
+        {
+          "name": "preceding"
+        },
+        {
+          "name": "following"
+        }
+      ]
+    },
+    {
       "name": "Preceding",
       "condition": {
         "expression": "unboundedPreceding == false"
