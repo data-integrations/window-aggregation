@@ -93,16 +93,15 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     stageConfigurer.setOutputSchema(getOutputSchema(inputSchema, aggregates));
   }
 
-  public void validate(Schema inputSchema, List<String> partitionFields,
+  private void validate(Schema inputSchema, List<String> partitionFields,
                        List<WindowAggregationConfig.FunctionInfo> aggregates, List<String> partitionOrderFields,
                        FailureCollector collector) {
 
     for (String partitionField : partitionFields) {
       Schema.Field field = inputSchema.getField(partitionField);
       if (field == null) {
-        collector.addFailure(
-          String.format("Can not partition by field '%s' because it does not exist in input schema.", partitionField),
-          String.format("Partition field '%s' must exist in input schema.", partitionField))
+        collector.addFailure(String.format("Partition field '%s' must exist in input schema.", partitionField),
+                             "")
           .withConfigElement("partitionFields", partitionField);
       }
     }
@@ -126,20 +125,20 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
 
       WindowAggregationConfig.Function function = functionInfo.getFunction();
       //check input schema
-      Schema allowedInputScheme = function.getAllowedInputScheme();
+      Schema allowedInputSchema = function.getAllowedInputScheme();
 
 
-      if (allowedInputScheme != null && inputFieldSchema != null) {
+      if (allowedInputSchema != null && inputFieldSchema != null) {
         Schema.Type type = inputFieldSchema.isNullable() ? inputFieldSchema.getUnionSchema(0).getType() :
           inputFieldSchema.getType();
-        int indexOf = allowedInputScheme.getUnionSchemas().stream().map(Schema::getType).collect(Collectors.toList())
+        int indexOf = allowedInputSchema.getUnionSchemas().stream().map(Schema::getType).collect(Collectors.toList())
           .indexOf(type);
         if (indexOf < 0) {
           collector.addFailure(
             String.format("Invalid input schema type '%s' for field '%s' in function '%s'.",
                           type, inputField.getName(), function.name())
             , String.format("Allowed input types for function '%s' are '%s'.",
-                            function.name(), Joiner.on(",").join(allowedInputScheme.getUnionSchemas())));
+                            function.name(), Joiner.on(",").join(allowedInputSchema.getUnionSchemas())));
         }
       }
 
@@ -159,7 +158,7 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     }
   }
 
-  public Schema getOutputSchema(Schema inputSchema, List<WindowAggregationConfig.FunctionInfo> aggregates) {
+  private Schema getOutputSchema(Schema inputSchema, List<WindowAggregationConfig.FunctionInfo> aggregates) {
     List<Schema.Field> outputFields = new ArrayList<>(aggregates.size());
     for (WindowAggregationConfig.FunctionInfo aggregate : aggregates) {
       outputFields.add(Schema.Field.of(aggregate.getAlias(), aggregate.getFunction().getOutputSchema()));
@@ -320,9 +319,9 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     }
 
     String percentileString = args[0];
-    Double percentile;
+    double percentile;
     try {
-      percentile = Double.valueOf(percentileString);
+      percentile = Double.parseDouble(percentileString);
     } catch (NumberFormatException e) {
       throw new InvalidParameterException("Discrete Percentile, first argument must be double value");
     }
@@ -331,8 +330,8 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
       throw new InvalidParameterException("Discrete Percentile, percentile must be in range 0.0-1.0");
     }
 
-    Schema.Type type = schemaTypeForInputField(inputSchema, aggregatesDatum.getFieldName());
-    DiscretePercentile discretePercentile = new DiscretePercentile(percentile, type);
+    Schema discretePercentileInputSchema = schemaForInputField(inputSchema, aggregatesDatum.getFieldName());
+    DiscretePercentile discretePercentile = new DiscretePercentile(percentile, discretePercentileInputSchema);
     sqlContext.udf().register("DISCRETE_PERCENTILE", discretePercentile);
 
     return apply(aggregatesDatum, dataFrame, spec);
@@ -400,7 +399,7 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     }
   }
 
-  private Schema.Type schemaTypeForInputField(Schema inputSchema, String inputFieldName) {
+  private Schema schemaForInputField(Schema inputSchema, String inputFieldName) {
     if (inputSchema == null) {
       return null;
     }
@@ -410,12 +409,7 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
       return null;
     }
 
-    Schema schema = schemaField.getSchema();
-    if (schema == null) {
-      return null;
-    }
-
-    return schema.isNullable() ? schema.getNonNullable().getType() : schema.getType();
+    return schemaField.getSchema();
   }
 
   /**

@@ -46,7 +46,9 @@ public class WindowAggregationConfig extends PluginConfig {
   @Macro
   @Nullable
   @Description("Specifies key-value pairs containing the ordering field, and the order "
-    + "(ascending or descending). Sorts numerically for numeric order by field, lexicographically for strings.")
+    + "(ascending or descending). All data types are allowed, except when `Frame Type` is RANGE and " +
+    "`Unbounded preceding` or `Unbounded following`is set to `false`, order must be single expression and data type " +
+    "must be one of: `Int`, `Long`, `Double`, `Float`. For example: `value:Ascending,id:Descending`")
   private String partitionOrder;
 
   @Macro
@@ -58,12 +60,12 @@ public class WindowAggregationConfig extends PluginConfig {
   @Macro
   @Nullable
   @Description("Whether to use an unbounded start boundary for a frame.")
-  private String unboundedPreceding;
+  private Boolean unboundedPreceding;
 
   @Macro
   @Nullable
   @Description("Whether to use an unbounded end boundary for a frame.")
-  private String unboundedFollowing;
+  private Boolean unboundedFollowing;
 
   @Macro
   @Nullable
@@ -161,17 +163,11 @@ public class WindowAggregationConfig extends PluginConfig {
   }
 
   public boolean isFrameDefinitionUnboundedPreceding() {
-    if (unboundedPreceding != null && unboundedPreceding.isEmpty()) {
-      return false;
-    }
-    return "true".equalsIgnoreCase(unboundedPreceding);
+    return unboundedPreceding == null ? false : unboundedPreceding;
   }
 
   public boolean isFrameDefinitionUnboundedFollowing() {
-    if (unboundedFollowing != null && unboundedFollowing.isEmpty()) {
-      return false;
-    }
-    return "true".equalsIgnoreCase(unboundedFollowing);
+    return unboundedFollowing == null ? false : unboundedFollowing;
   }
 
   public long getFrameDefinitionPrecedingBound() {

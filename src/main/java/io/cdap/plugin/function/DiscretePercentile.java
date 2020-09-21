@@ -35,14 +35,14 @@ import java.util.TreeMap;
 
 
 /**
- *  Calculate Discrete Percentile
+ * Calculate Discrete Percentile
  */
 public class DiscretePercentile extends UserDefinedAggregateFunction {
 
   private final double percentile;
   private final DataType inputSchemaSparkType;
 
-  public DiscretePercentile(double percentile, Schema.Type inputSchemaType) {
+  public DiscretePercentile(double percentile, Schema inputSchemaType) {
     this.percentile = percentile;
     this.inputSchemaSparkType = convertType(inputSchemaType);
   }
@@ -54,7 +54,14 @@ public class DiscretePercentile extends UserDefinedAggregateFunction {
     return DataTypes.createStructType(inputFields);
   }
 
-  private DataType convertType(Schema.Type type) {
+  private DataType convertType(Schema schema) {
+    if (schema == null) {
+      throw new RuntimeException("Input Schema for Discrete Percentile can not be null");
+    }
+    if (schema.getLogicalType() != null) {
+      throw new RuntimeException("Only type INT, LONG, FLOAT and DOUBLE are supported.");
+    }
+    Schema.Type type = schema.isNullable() ? schema.getNonNullable().getType() : schema.getType();
     switch (type) {
       case INT:
         return DataTypes.IntegerType;
@@ -65,7 +72,7 @@ public class DiscretePercentile extends UserDefinedAggregateFunction {
       case DOUBLE:
         return DataTypes.DoubleType;
       default: {
-        throw new RuntimeException("Only Numeric type are supported.");
+        throw new RuntimeException("Only type INT, LONG, FLOAT and DOUBLE are supported.");
       }
     }
   }

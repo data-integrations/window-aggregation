@@ -17,8 +17,9 @@ Properties
 At least 1 field must be provided.
 Records with the same value for all these fields will be grouped together.
 
-**Order:** Specifies key-value pairs containing the ordering field, and the order (ascending or descending). 
-Sorts numerically for numeric order by field, lexicographically for strings.
+**Order:** Specifies key-value pairs containing the ordering field, and the order (ascending or descending).
+All data types are allowed, except when `Frame Type` is RANGE and `Unbounded preceding` or `Unbounded following`
+is set to `false`, order must be single expression and data type must be one of: `Int`, `Long`, `Double`, `Float`
 For example: `value:Ascending,id:Descending`.
 
 **Frame Type:** Selects the type of window frame to create within each partition. Options can be `ROW`, `RANGE`
