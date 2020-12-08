@@ -83,8 +83,8 @@ public class WindowAggregationConfig extends PluginConfig {
 
   @Macro
   @Description("Specifies a list of functions to run on the selected window. " +
-    "Supported aggregate functions are Rank, Dense Rank, Percent Rank, N tile, Row Number, Median, Continuous " +
-    "Percentile, Lead, Lag, First, Last, Cumulative distribution, Accumulate. Aggregates are " +
+    "Supported aggregate functions are Rank, Dense_Rank, Percent_Rank, N_Tile, Row_Number, Median, Continuous " +
+    "Percentile, Lead, Lag, First, Last, Cumulative_Distribution, Accumulate. Aggregates are " +
     "specified using syntax: `alias:function(field,encoded(arguments),ignoreNulls)[\n other functions]`." +
     "For example, 'nextValue:lead(value,1,false)\npreviousValue:lag(value,1,false)' will calculate two aggregates. " +
     "The first will create a field called 'nextValue' that is the next value of current row in the group." +

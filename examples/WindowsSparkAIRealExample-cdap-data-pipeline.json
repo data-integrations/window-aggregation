@@ -1,0 +1,146 @@
+{
+    "artifact": {
+        "name": "cdap-data-pipeline",
+        "version": "6.2.3",
+        "scope": "SYSTEM"
+    },
+    "description": "Data Pipeline Application",
+    "name": "WindowsSparkAIRealExample_v49",
+    "config": {
+        "resources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "driverResources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "connections": [
+            {
+                "from": "GCS3",
+                "to": "WindowAggreation"
+            },
+            {
+                "from": "WindowAggreation",
+                "to": "GCS_WA_SINK"
+            }
+        ],
+        "comments": [],
+        "postActions": [],
+        "properties": {},
+        "processTimingEnabled": true,
+        "stageLoggingEnabled": false,
+        "stages": [
+            {
+                "name": "GCS3",
+                "plugin": {
+                    "name": "GCSFile",
+                    "type": "batchsource",
+                    "label": "GCS3",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.15.4-SNAPSHOT",
+                        "scope": "USER"
+                    },
+                    "properties": {
+                        "project": "auto-detect",
+                        "format": "delimited",
+                        "skipHeader": "true",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect",
+                        "filenameOnly": "false",
+                        "recursive": "false",
+                        "encrypted": "false",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"}]}",
+                        "referenceName": "wa_gcs_source",
+                        "delimiter": ";",
+                        "path": "${GCS_Path}"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"}]}"
+                    }
+                ],
+                "id": "GCS3"
+            },
+            {
+                "name": "WindowAggreation",
+                "plugin": {
+                    "name": "WindowAggregation",
+                    "type": "sparkcompute",
+                    "label": "WindowAggreation",
+                    "artifact": {
+                        "name": "window-aggregation",
+                        "version": "1.0.0",
+                        "scope": "USER"
+                    },
+                    "properties": {
+                        "windowFrameType": "NONE",
+                        "schema": "{\"name\":\"etlSchemaBody\",\"type\":\"record\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"},{\"name\":\"aliasDiscPercent\",\"type\":\"float\"}]}",
+                        "partitionFields": "Identifier",
+                        "partitionOrder": "FirstName:Ascending",
+                        "aggregates": "aliasDiscPercent:DISCRETE_PERCENTILE(value,0.1,false)"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": "{\"name\":\"etlSchemaBody\",\"type\":\"record\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"},{\"name\":\"aliasDiscPercent\",\"type\":\"float\"}]}"
+                    }
+                ],
+                "inputSchema": [
+                    {
+                        "name": "GCS3",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"}]}"
+                    }
+                ],
+                "id": "WindowAggreation"
+            },
+            {
+                "name": "GCS_WA_SINK",
+                "plugin": {
+                    "name": "GCS",
+                    "type": "batchsink",
+                    "label": "GCS_WA_SINK",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.15.4-SNAPSHOT",
+                        "scope": "USER"
+                    },
+                    "properties": {
+                        "suffix": "yyyy-MM-dd-HH-mm",
+                        "format": "delimited",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect",
+                        "location": "us",
+                        "referenceName": "wa_gcs_sink",
+                        "delimiter": ";",
+                        "schema": "{\"name\":\"etlSchemaBody\",\"type\":\"record\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"},{\"name\":\"aliasDiscPercent\",\"type\":\"float\"}]}",
+                        "project": "auto-detect",
+                        "path": "${GCS_Sink_Path}"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": "{\"name\":\"etlSchemaBody\",\"type\":\"record\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"},{\"name\":\"aliasDiscPercent\",\"type\":\"float\"}]}"
+                    }
+                ],
+                "inputSchema": [
+                    {
+                        "name": "WindowAggreation",
+                        "schema": "{\"name\":\"etlSchemaBody\",\"type\":\"record\",\"fields\":[{\"name\":\"Identifier\",\"type\":\"long\"},{\"name\":\"FirstName\",\"type\":\"string\"},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"float\"},{\"name\":\"aliasDiscPercent\",\"type\":\"float\"}]}"
+                    }
+                ],
+                "id": "GCS_WA_SINK"
+            }
+        ],
+        "schedule": "0 * * * *",
+        "engine": "spark",
+        "numOfRecordsPreview": 100,
+        "description": "Data Pipeline Application",
+        "maxConcurrentRuns": 1
+    }
+}
