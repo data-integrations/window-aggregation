@@ -189,6 +189,7 @@
                 <exclude>**/*.md</exclude>
                 <exclude>docs/**</exclude>
                 <exclude>widgets/**</exclude>
+                <exclude>examples/**</exclude>
               </excludes>
             </configuration>
           </execution>
