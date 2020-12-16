@@ -39,8 +39,8 @@ specifies the value to be added to the value of the current row to get the end b
 
 
 **Aggregates:** Specifies a list of functions to run on the selected window. Supported aggregate functions are `Rank`, 
-`Dense Rank`, `Percent Rank`, `N tile`, `Row Number`, `Median`, `Continuous Percentile`, `Lead`, 
-`Lag`, `First`, `Last`, `Cumulative distribution`, `Accumulate`. Aggregates are specified using syntax: 
+`Dense_Rank`, `Percent_Rank`, `N_Tile`, `Row_Number`, `Median`, `Continuous_Percentile`, `Lead`, 
+`Lag`, `First`, `Last`, `Cumulative_Distribution`, `Accumulate`. Aggregates are specified using syntax: 
 .`alias:function(field,encoded(arguments),ignoreNulls)[\n other functions]`. For example, 
 `nextValue:lead(value,1,false)\npreviousValue:lag(value,1,false)` will calculate two aggregates. The first will create a
 field called `nextValue` that is the next value of current row in the group. The second will create a field called
@@ -48,3 +48,32 @@ field called `nextValue` that is the next value of current row in the group. The
 
 **Number of partitions:** Number of partitions to use when grouping fields. If not specified, the execution
 framework will decide on the number to use.
+
+
+Sample Pipeline Data
+----------
+Input Records
+
+| Identifier | FirstName | LastName | Value |
+| :------------ | :------: | :----- | :---------- |
+| 1 | Jamie | Smith | 7280.9805|
+| 1 | Jamie | Smith | 6190.137|
+| 1 | Jamie | Smith | 3127.5457|
+| 1 | Jamie | Smith | 3127.5457|
+| 1 | Aj | Rizi | 5850.325|
+| 1 | Aj | Rizi | 7278.841|
+| 1 | Aj | Rizi | 3925.2046|
+| 1 | Aj | Rizi | 7116.509|
+
+Output Records
+
+| Identifier | FirstName | LastName | Value     | aliasDiscPercent | 
+| :--------: | :-------: | :------: | :-------- |:---------------- |
+| 1          | Jamie     | Smith    | 7280.9805 | 3925.2046 | 
+| 1          | Jamie     | Smith    | 6190.137  | 3127.5457 | 
+| 1          | Jamie     | Smith    | 3127.5457 | 3127.5457 | 
+| 1          | Jamie     | Smith    | 3127.5457 | 3925.2046 | 
+| 1          | Aj        | Rizi     | 5850.325  | 3127.5457 | 
+| 1          | Aj        | Rizi     | 7278.841  | 3925.2046 | 
+| 1          | Aj        | Rizi     | 3925.2046 | 3127.5457 | 
+| 1          | Aj        | Rizi     | 7116.509  | 3925.2046 | 
