@@ -25,7 +25,7 @@ import io.cdap.cdap.api.annotation.Macro;
 import io.cdap.cdap.api.annotation.Name;
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.cdap.api.plugin.PluginConfig;
-import org.apache.spark.sql.Column;
+import io.cdap.cdap.etl.api.FailureCollector;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -37,6 +37,10 @@ import javax.annotation.Nullable;
  * Config for Window aggregation plugin.
  */
 public class WindowAggregationConfig extends PluginConfig {
+
+  public static final String NAME_AGGREGATES = "aggregates";
+  public static final String NAME_PARTITION_FIELD = "partitionFields";
+  public static final String NAME_PARTITION_ORDER = "partitionOrder";
 
   @Macro
   @Description("Specifies a list of fields, comma-separated, to partition the data by. At least 1 field must be " +
@@ -114,9 +118,7 @@ public class WindowAggregationConfig extends PluginConfig {
     return fields;
   }
 
-  public Column[] getPartitionsColumns() {
-    return getPartitionFields().stream().map(Column::new).toArray(Column[]::new);
-  }
+
 
   public String getPartitionOrder() {
     return partitionOrder;
@@ -134,26 +136,6 @@ public class WindowAggregationConfig extends PluginConfig {
     return orderFields;
   }
 
-  public Column[] getPartitionOrderColumns() {
-    if (partitionOrder == null || partitionOrder.isEmpty()) {
-      return new Column[0];
-    }
-    List<Column> columns = new ArrayList<>();
-    String[] columnsAndOrder = partitionOrder.split(",");
-    for (String columnAndOrder : columnsAndOrder) {
-      String[] split = columnAndOrder.split(":");
-      
-      String columnName = split[0];
-      String orderString = split[1];
-
-      Column column = new Column(columnName);
-      Order order = Order.fromString(orderString);
-      column = Order.ASCENDING == order ? column.asc() : column.desc();
-
-      columns.add(column);
-    }
-    return columns.toArray(new Column[columns.size()]);
-  }
 
   public WindowFrameType getWindowFrameType() {
     if (windowFrameType == null || windowFrameType.isEmpty()) {
@@ -190,9 +172,9 @@ public class WindowAggregationConfig extends PluginConfig {
     return Long.parseLong(following);
   }
 
-  public List<FunctionInfo> getAggregates() {
+  public List<FunctionInfo> getAggregates(FailureCollector failureCollector) {
     List<FunctionInfo> functionInfos = new ArrayList<>();
-    if (containsMacro("aggregates")) {
+    if (containsMacro(NAME_AGGREGATES)) {
       return functionInfos;
     }
 
@@ -201,44 +183,56 @@ public class WindowAggregationConfig extends PluginConfig {
     for (String aggregate : Splitter.on('\n').trimResults().split(aggregates)) {
       int colonIdx = aggregate.indexOf(':');
       if (colonIdx < 0) {
-        throw new IllegalArgumentException(String.format(
-          "Could not find ':' separating aggregate alias from its function in '%s'.", aggregate));
+        failureCollector.addFailure(
+          String.format("Could not find ':' separating aggregate alias from its function in '%s'.", aggregate),
+          "Functions must be specified as alias:function(field, argumentsEncoded, ignoreNulls).")
+          .withConfigProperty(NAME_AGGREGATES);
+        continue;
       }
       String alias = aggregate.substring(0, colonIdx).trim();
       if (!aggregateNames.add(alias)) {
-        throw new IllegalArgumentException(String.format(
-          "Cannot create multiple aggregate functions with the same alias '%s'.", alias));
+        failureCollector.addFailure(String.format(
+          "Cannot create multiple aggregate functions with the same alias '%s'.", alias),
+                                    "Provided aliases must be unique.")
+          .withConfigProperty(NAME_AGGREGATES);
+        continue;
       }
 
       String functionAndParameters = aggregate.substring(colonIdx + 1).trim();
       int firstParameterIndex = functionAndParameters.indexOf('(');
       if (firstParameterIndex < 0) {
-        throw new IllegalArgumentException(String.format(
-          "Could not find '(' in function '%s'. Functions must be specified as function(field, " +
-            "argumentsEncoded, ignoreNulls).", functionAndParameters));
+        failureCollector.addFailure(String.format("Could not find '(' in function '%s'.", functionAndParameters),
+                                    "Functions must be specified as function(field, argumentsEncoded," +
+                                      " ignoreNulls).").withConfigProperty(NAME_AGGREGATES);
+        continue;
       }
       String functionStr = functionAndParameters.substring(0, firstParameterIndex).trim();
       Function function;
       try {
         function = Function.valueOf(functionStr.toUpperCase());
       } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException(String.format(
-          "Invalid function '%s'. Must be one of %s.", functionStr, Joiner.on(',').join(Function.values())));
+        failureCollector.addFailure(String.format("Invalid function '%s'.", functionStr),
+                                    String.format("Must be one of %s.", Joiner.on(',').join(Function.values())))
+          .withConfigProperty(NAME_AGGREGATES);
+        continue;
       }
 
       String parameters = functionAndParameters.substring(firstParameterIndex + 1).trim();
       if (!parameters.endsWith(")")) {
-        throw new IllegalArgumentException(
-          String.format("Could not find closing ')' in function '%s'. Functions must be specified as function(field," +
-                          " argumentsEncoded, ignoreNulls).", functionAndParameters));
+        failureCollector.addFailure(
+          String.format("Could not find closing ')' in function '%s'.", functionAndParameters),
+          "Functions must be specified as function(field, argumentsEncoded, ignoreNulls).")
+          .withConfigProperty(NAME_AGGREGATES);
+        continue;
       }
-
 
       int firstParameterEndIndex = parameters.indexOf(",");
       if (firstParameterEndIndex < 0) {
-        throw new IllegalArgumentException(String.format(
-          "Could not find '(' in function '%s'. Functions must be specified as function(field, argumentsEncoded," +
-            " ignoreNulls).", functionAndParameters));
+        failureCollector.addFailure(String.format("Could not find '(' in function '%s'.", functionAndParameters),
+                                    "Functions must be specified as function(field, argumentsEncoded," +
+                                      " ignoreNulls).")
+        .withConfigProperty(NAME_AGGREGATES);
+        continue;
       }
 
       String field = parameters.substring(0, firstParameterEndIndex).trim();
@@ -246,9 +240,10 @@ public class WindowAggregationConfig extends PluginConfig {
       int secondParameterEndIndex = parameters.indexOf(",", firstParameterEndIndex + 1);
 
       if (secondParameterEndIndex < 0) {
-        throw new IllegalArgumentException(
-          String.format("Could not find '(' in function '%s'. " + "Functions must be specified as function(field, " +
-                          "argumentsEncoded, ignoreNulls).", functionAndParameters));
+        failureCollector.addFailure(String.format("Could not find '(' in function '%s'.", functionAndParameters),
+                                    "Functions must be specified as function(field, argumentsEncoded, " +
+                                      "ignoreNulls).").withConfigProperty(NAME_AGGREGATES);
+        continue;
       }
 
       String encodedArguments = parameters.substring(firstParameterEndIndex + 1, secondParameterEndIndex).trim();
@@ -266,7 +261,8 @@ public class WindowAggregationConfig extends PluginConfig {
     }
 
     if (functionInfos.isEmpty()) {
-      throw new IllegalArgumentException("The 'aggregates' property must be set.");
+      failureCollector.addFailure("Missing 'aggregates' property.", "The 'aggregates' property must be set.")
+      .withConfigProperty(NAME_AGGREGATES);
     }
     return functionInfos;
   }
