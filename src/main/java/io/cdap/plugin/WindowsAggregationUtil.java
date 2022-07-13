@@ -87,12 +87,10 @@ final class WindowsAggregationUtil {
     String numberOfPartitionsString = config.getNumberOfPartitions();
 
     if (Strings.isNullOrEmpty(numberOfPartitionsString)) {
-      return sparkExecutionPluginContext.getSparkContext()
-        .parallelize(rowJavaRDD.collect());
+      return rowJavaRDD;
     }
 
-    return sparkExecutionPluginContext.getSparkContext().parallelize(rowJavaRDD.collect(),
-                                                                     Integer.parseInt(numberOfPartitionsString));
+    return rowJavaRDD.repartition(Integer.parseInt(numberOfPartitionsString));
   }
 
   private static Dataset<Row> applyCustomFunction(SQLContext sqlContext, WindowAggregationConfig.FunctionInfo
