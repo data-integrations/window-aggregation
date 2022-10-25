@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020 Cask Data, Inc.
+ * Copyright © 2020-2022 Cask Data, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -107,6 +107,11 @@ public class WindowAggregationConfig extends PluginConfig {
   @Description("Specifies the schema of the records outputted from this plugin.")
   private String schema;
 
+  private static Schema numericSchema() {
+    return Schema.unionOf(Schema.of(Schema.Type.INT), Schema.of(Schema.Type.DOUBLE), Schema.of(Schema.Type.LONG),
+      Schema.of(Schema.Type.FLOAT));
+  }
+
   public List<String> getPartitionFields() {
     List<String> fields = new ArrayList<>();
     if (containsMacro("partitionFields")) {
@@ -118,8 +123,6 @@ public class WindowAggregationConfig extends PluginConfig {
     return fields;
   }
 
-
-
   public String getPartitionOrder() {
     return partitionOrder;
   }
@@ -130,12 +133,10 @@ public class WindowAggregationConfig extends PluginConfig {
       return orderFields;
     }
     for (String fieldAndOrder : Splitter.on(",").trimResults().split(partitionOrder)) {
-      String[] split = fieldAndOrder.split(":");
-      orderFields.add(split[0].trim());
+      orderFields.add(fieldAndOrder);
     }
     return orderFields;
   }
-
 
   public WindowFrameType getWindowFrameType() {
     if (windowFrameType == null || windowFrameType.isEmpty()) {
@@ -145,11 +146,11 @@ public class WindowAggregationConfig extends PluginConfig {
   }
 
   public boolean isFrameDefinitionUnboundedPreceding() {
-    return unboundedPreceding == null ? false : unboundedPreceding;
+    return unboundedPreceding != null && unboundedPreceding;
   }
 
   public boolean isFrameDefinitionUnboundedFollowing() {
-    return unboundedFollowing == null ? false : unboundedFollowing;
+    return unboundedFollowing != null && unboundedFollowing;
   }
 
   public long getFrameDefinitionPrecedingBound() {
@@ -185,16 +186,16 @@ public class WindowAggregationConfig extends PluginConfig {
       if (colonIdx < 0) {
         failureCollector.addFailure(
           String.format("Could not find ':' separating aggregate alias from its function in '%s'.", aggregate),
-          "Functions must be specified as alias:function(field, argumentsEncoded, ignoreNulls).")
-          .withConfigProperty(NAME_AGGREGATES);
+           "Functions must be specified as alias:function(field, argumentsEncoded, ignoreNulls).")
+              .withConfigProperty(NAME_AGGREGATES);
         continue;
       }
       String alias = aggregate.substring(0, colonIdx).trim();
       if (!aggregateNames.add(alias)) {
         failureCollector.addFailure(String.format(
           "Cannot create multiple aggregate functions with the same alias '%s'.", alias),
-                                    "Provided aliases must be unique.")
-          .withConfigProperty(NAME_AGGREGATES);
+            "Provided aliases must be unique.")
+              .withConfigProperty(NAME_AGGREGATES);
         continue;
       }
 
@@ -202,8 +203,8 @@ public class WindowAggregationConfig extends PluginConfig {
       int firstParameterIndex = functionAndParameters.indexOf('(');
       if (firstParameterIndex < 0) {
         failureCollector.addFailure(String.format("Could not find '(' in function '%s'.", functionAndParameters),
-                                    "Functions must be specified as function(field, argumentsEncoded," +
-                                      " ignoreNulls).").withConfigProperty(NAME_AGGREGATES);
+          "Functions must be specified as function(field, argumentsEncoded," +
+            " ignoreNulls).").withConfigProperty(NAME_AGGREGATES);
         continue;
       }
       String functionStr = functionAndParameters.substring(0, firstParameterIndex).trim();
@@ -212,8 +213,8 @@ public class WindowAggregationConfig extends PluginConfig {
         function = Function.valueOf(functionStr.toUpperCase());
       } catch (IllegalArgumentException e) {
         failureCollector.addFailure(String.format("Invalid function '%s'.", functionStr),
-                                    String.format("Must be one of %s.", Joiner.on(',').join(Function.values())))
-          .withConfigProperty(NAME_AGGREGATES);
+          String.format("Must be one of %s.", Joiner.on(',').join(Function.values())))
+            .withConfigProperty(NAME_AGGREGATES);
         continue;
       }
 
@@ -221,17 +222,17 @@ public class WindowAggregationConfig extends PluginConfig {
       if (!parameters.endsWith(")")) {
         failureCollector.addFailure(
           String.format("Could not find closing ')' in function '%s'.", functionAndParameters),
-          "Functions must be specified as function(field, argumentsEncoded, ignoreNulls).")
-          .withConfigProperty(NAME_AGGREGATES);
+           "Functions must be specified as function(field, argumentsEncoded, ignoreNulls).")
+             .withConfigProperty(NAME_AGGREGATES);
         continue;
       }
 
       int firstParameterEndIndex = parameters.indexOf(",");
       if (firstParameterEndIndex < 0) {
         failureCollector.addFailure(String.format("Could not find '(' in function '%s'.", functionAndParameters),
-                                    "Functions must be specified as function(field, argumentsEncoded," +
-                                      " ignoreNulls).")
-        .withConfigProperty(NAME_AGGREGATES);
+          "Functions must be specified as function(field, argumentsEncoded," +
+            " ignoreNulls).")
+                .withConfigProperty(NAME_AGGREGATES);
         continue;
       }
 
@@ -241,8 +242,8 @@ public class WindowAggregationConfig extends PluginConfig {
 
       if (secondParameterEndIndex < 0) {
         failureCollector.addFailure(String.format("Could not find '(' in function '%s'.", functionAndParameters),
-                                    "Functions must be specified as function(field, argumentsEncoded, " +
-                                      "ignoreNulls).").withConfigProperty(NAME_AGGREGATES);
+           "Functions must be specified as function(field, argumentsEncoded, " +
+              "ignoreNulls).").withConfigProperty(NAME_AGGREGATES);
         continue;
       }
 
@@ -261,8 +262,8 @@ public class WindowAggregationConfig extends PluginConfig {
     }
 
     if (functionInfos.isEmpty()) {
-      failureCollector.addFailure("Missing 'aggregates' property.", "The 'aggregates' property must be set.")
-      .withConfigProperty(NAME_AGGREGATES);
+      failureCollector.addFailure("Missing 'aggregates' property.", "The 'aggregates' property must" +
+        " be set.").withConfigProperty(NAME_AGGREGATES);
     }
     return functionInfos;
   }
@@ -297,11 +298,6 @@ public class WindowAggregationConfig extends PluginConfig {
     RANGE
   }
 
-  private static Schema numericSchema() {
-    return Schema.unionOf(Schema.of(Schema.Type.INT), Schema.of(Schema.Type.DOUBLE), Schema.of(Schema.Type.LONG),
-                          Schema.of(Schema.Type.FLOAT));
-  }
-
   enum Function {
     RANK(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.INT))),
     DENSE_RANK(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.INT))),
@@ -318,6 +314,8 @@ public class WindowAggregationConfig extends PluginConfig {
     CUMULATIVE_DISTRIBUTION(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
     ACCUMULATE(numericSchema(), null);
 
+    private Schema allowedInputScheme;
+    private Schema outputSchema;
 
     /**
      * @param allowedInputSchema allowed input field schema type where function can be applied,
@@ -328,9 +326,6 @@ public class WindowAggregationConfig extends PluginConfig {
       this.allowedInputScheme = allowedInputSchema;
       this.outputSchema = outputSchema;
     }
-
-    private Schema allowedInputScheme;
-    private Schema outputSchema;
 
     public Schema getAllowedInputScheme() {
       return allowedInputScheme;
@@ -353,13 +348,11 @@ public class WindowAggregationConfig extends PluginConfig {
    * Class for holding parsed information of functions defined in configuration
    */
   public static class FunctionInfo {
-
     private final Function function;
     private final String fieldName;
     private final String alias;
     private final String[] args;
     private final boolean ignoreNull;
-
 
     public FunctionInfo(String alias, Function function, String fieldName, String[] arguments, String ignoreNulls) {
       this.alias = alias;
@@ -368,7 +361,6 @@ public class WindowAggregationConfig extends PluginConfig {
       this.args = arguments;
       this.ignoreNull = !"false".equals(ignoreNulls);
     }
-
 
     public Function getFunction() {
       return function;
@@ -392,7 +384,7 @@ public class WindowAggregationConfig extends PluginConfig {
 
     public String description() {
       return String.format("%s:%s(%s,%s,%s)", getAlias(), getFunction().name(), getFieldName(),
-                           Joiner.on(",").join(args), ignoreNull);
+        Joiner.on(",").join(args), ignoreNull);
     }
   }
 }

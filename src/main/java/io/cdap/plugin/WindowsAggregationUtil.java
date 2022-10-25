@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020 Cask Data, Inc.
+ * Copyright © 2020-2022 Cask Data, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -36,7 +36,6 @@ import java.util.List;
 
 /**
  * Util method for {@link WindowAggregation}.
- *
  * This class contains methods for {@link WindowAggregation} that require spark classes because during validation
  * spark classes are not available. Refer CDAP-15912 for more information.
  */
@@ -47,13 +46,10 @@ final class WindowsAggregationUtil {
   }
 
   public static JavaRDD<StructuredRecord> transform(SparkExecutionPluginContext sparkExecutionPluginContext,
-                                                    JavaRDD<StructuredRecord> javaRDD, WindowAggregationConfig config,
-                                                    Schema inputSchema, Schema outputSchema) {
+    JavaRDD<StructuredRecord> javaRDD, WindowAggregationConfig config, Schema inputSchema, Schema outputSchema) {
     JavaRDD<Row> map = javaRDD.map(
       structuredRecord -> DataFrames.toRow(structuredRecord, DataFrames.toDataType(inputSchema)));
-
     SQLContext sqlContext = new SQLContext(sparkExecutionPluginContext.getSparkContext());
-
     Dataset<Row> data = sqlContext.createDataFrame(map, DataFrames.toDataType(inputSchema));
     WindowSpec spec = Window.partitionBy(WindowsAggregationUtil.getPartitionsColumns(config.getPartitionFields()))
       .orderBy(WindowsAggregationUtil.getPartitionOrderColumns(config.getPartitionOrder()));
@@ -61,11 +57,11 @@ final class WindowsAggregationUtil {
     switch (config.getWindowFrameType()) {
       case ROW:
         spec = spec.rowsBetween(config.getFrameDefinitionPrecedingBound(),
-                                config.getFrameDefinitionFollowingBound());
+          config.getFrameDefinitionFollowingBound());
         break;
       case RANGE:
         spec = spec.rangeBetween(config.getFrameDefinitionPrecedingBound(),
-                                 config.getFrameDefinitionFollowingBound());
+          config.getFrameDefinitionFollowingBound());
         break;
       case NONE:
       default:
@@ -120,7 +116,7 @@ final class WindowsAggregationUtil {
   }
 
   private static Dataset<Row> apply(WindowAggregationConfig.FunctionInfo data, Dataset<Row> dataFrame,
-                                    WindowSpec spec) {
+    WindowSpec spec) {
     Column aggregateColumn = getAggregateColumn(data).over(spec);
     return dataFrame.withColumn(data.getAlias(), aggregateColumn);
   }
