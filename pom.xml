@@ -26,10 +26,10 @@
 
   <properties>
     <!-- properties for script build step that creates the config files for the artifacts -->
-    <data.pipeline.parent>system:cdap-data-pipeline[6.1.2,7.0.0-SNAPSHOT)</data.pipeline.parent>
-    <data.stream.parent>system:cdap-data-streams[6.1.2,7.0.0-SNAPSHOT)</data.stream.parent>
+    <data.pipeline.parent>system:cdap-data-pipeline[6.9.0-SNAPSHOT,7.0.0-SNAPSHOT)</data.pipeline.parent>
+    <data.stream.parent>system:cdap-data-streams[6.9.0-SNAPSHOT,7.0.0-SNAPSHOT)</data.stream.parent>
 
-    <cdap.version>6.1.2</cdap.version>
+    <cdap.version>6.9.0-SNAPSHOT</cdap.version>
     <spark.version>2.1.3</spark.version>
     <logback.version>1.0.9</logback.version>
     <guava.version>13.0.1</guava.version>
@@ -151,6 +151,30 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
       <version>${guava.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.cdap.cdap</groupId>
+      <artifactId>cdap-api-common</artifactId>
+      <version>${cdap.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.cdap.cdap</groupId>
+      <artifactId>cdap-etl-core</artifactId>
+      <version>${cdap.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.cdap.cdap</groupId>
+      <artifactId>cdap-etl-proto</artifactId>
+      <version>${cdap.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>2.24.0</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -311,5 +335,5 @@
       </plugin>
     </plugins>
   </build>
-
 </project>
+
