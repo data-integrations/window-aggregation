@@ -118,7 +118,8 @@ final class WindowsAggregationUtil {
   private static Dataset<Row> apply(WindowAggregationConfig.FunctionInfo data, Dataset<Row> dataFrame,
     WindowSpec spec) {
     Column aggregateColumn = getAggregateColumn(data).over(spec);
-    return dataFrame.withColumn(data.getAlias(), aggregateColumn);
+    String alias = data.getAlias();
+    return dataFrame.withColumn(alias, aggregateColumn);
   }
 
   private static Column getAggregateColumn(WindowAggregationConfig.FunctionInfo data) {

@@ -314,7 +314,7 @@ public class WindowAggregationConfig extends PluginConfig {
     CUMULATIVE_DISTRIBUTION(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
     ACCUMULATE(numericSchema(), null);
 
-    private Schema allowedInputScheme;
+    private Schema allowedInputSchema;
     private Schema outputSchema;
 
     /**
@@ -323,16 +323,16 @@ public class WindowAggregationConfig extends PluginConfig {
      * @param outputSchema       if not defined, null, schema type of input field will be as output schema.
      */
     Function(Schema allowedInputSchema, Schema outputSchema) {
-      this.allowedInputScheme = allowedInputSchema;
+      this.allowedInputSchema = allowedInputSchema;
       this.outputSchema = outputSchema;
     }
 
-    public Schema getAllowedInputScheme() {
-      return allowedInputScheme;
+    public Schema getAllowedInputSchema() {
+      return allowedInputSchema;
     }
 
-    public void setAllowedInputScheme(Schema allowedInputScheme) {
-      this.allowedInputScheme = allowedInputScheme;
+    public void setAllowedInputSchema(Schema allowedInputSchema) {
+      this.allowedInputSchema = allowedInputSchema;
     }
 
     public Schema getOutputSchema() {
