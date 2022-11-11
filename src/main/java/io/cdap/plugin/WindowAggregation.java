@@ -164,7 +164,7 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
 
       WindowAggregationConfig.Function function = functionInfo.getFunction();
       //check input schema
-      Schema allowedInputSchema = function.getAllowedInputScheme();
+      Schema allowedInputSchema = function.getAllowedInputSchema();
 
 
       if (allowedInputSchema != null && inputFieldSchema != null) {

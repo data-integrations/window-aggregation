@@ -17,7 +17,11 @@ package io.cdap.plugin;
 
 import io.cdap.cdap.api.data.schema.Schema;
 import io.cdap.cdap.etl.api.FailureCollector;
+import io.cdap.cdap.etl.api.PipelineConfigurer;
+import io.cdap.cdap.etl.api.StageConfigurer;
 import io.cdap.cdap.etl.api.aggregation.WindowAggregationDefinition;
+import io.cdap.cdap.etl.api.batch.SparkExecutionPluginContext;
+import io.cdap.cdap.etl.api.batch.SparkPluginContext;
 import io.cdap.cdap.etl.api.engine.sql.StandardSQLCapabilities;
 import io.cdap.cdap.etl.api.relational.Capability;
 import io.cdap.cdap.etl.api.relational.Engine;
@@ -35,6 +39,7 @@ import org.mockito.Mockito;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.mockito.Mockito.mock;
@@ -47,6 +52,8 @@ public class WindowAggregationTest {
   @Mock
   private Engine engine;
   @Mock
+  private SparkExecutionPluginContext sparkExecutionPluginContext;
+  @Mock
   private ExpressionFactory<String> expressionFactory;
   private FailureCollector failureCollector;
   @Mock
@@ -56,6 +63,14 @@ public class WindowAggregationTest {
   private Schema schema;
   @Mock
   private WindowAggregationConfig config;
+  @Mock
+  private Optional optional;
+  @Mock
+  private PipelineConfigurer pipelineConfigurer;
+  @Mock
+  private SparkPluginContext sparkPluginContext;
+  @Mock
+  private StageConfigurer stageConfigurer;
   public WindowAggregation windowAggregation;
   private WindowAggregationConfig.FunctionInfo functionInfo;
   private WindowAggregationConfig.Function function;
@@ -65,9 +80,9 @@ public class WindowAggregationTest {
   public void setUp() {
     failureCollector = new SimpleFailureCollector();
     partitionFields = new ArrayList<>();
-    partitionFields.add("field1");
+    partitionFields.add("field");
     partitionFields.add("field2");
-    partitionOrderFields  = "field1:Ascending";
+    partitionOrderFields  = "field:Ascending";
     long dummy = 0;
     config = mock(WindowAggregationConfig.class);
     function = WindowAggregationConfig.Function.FIRST;
@@ -75,6 +90,8 @@ public class WindowAggregationTest {
             function, "field", null, null);
     functionInfos = new ArrayList<>();
     functionInfos.add(functionInfo);
+    engine = mock(Engine.class);
+    optional = mock(Optional.class);
     relationalTranformContext = mock(RelationalTranformContext.class);
     Mockito.when(config.getPartitionFields()).thenReturn(partitionFields);
     Mockito.when(relationalTranformContext.getEngine()).thenReturn(engine);
@@ -86,9 +103,11 @@ public class WindowAggregationTest {
     Mockito.when(config.getFrameDefinitionFollowingBound()).thenReturn(dummy);
     Mockito.when(config.getAggregates(failureCollector)).thenReturn(functionInfos);
     expressionFactory = mock(ExpressionFactory.class);
+    Mockito.when(engine.getExpressionFactory(Mockito.any(), Mockito.any(Capability.class))).thenReturn(optional);
+    Mockito.when(optional.isPresent()).thenReturn(true);
     windowAggregation = new WindowAggregation(config);
     schemaFields = new ArrayList<>();
-    Schema.Field field1 = Schema.Field.of("field1", Schema.of(Schema.Type.STRING));
+    Schema.Field field1 = Schema.Field.of("field", Schema.of(Schema.Type.STRING));
     Schema.Field field2 = Schema.Field.of("field2", Schema.of(Schema.Type.INT));
     schemaFields.add(field1);
     schemaFields.add(field2);
@@ -97,6 +116,20 @@ public class WindowAggregationTest {
     set = new HashSet<>();
     set.add(StandardSQLCapabilities.BIGQUERY);
     Mockito.when(expressionFactory.getCapabilities()).thenReturn(set);
+    sparkExecutionPluginContext = mock(SparkExecutionPluginContext.class);
+    Mockito.when(sparkExecutionPluginContext.getFailureCollector()).thenReturn(failureCollector);
+    Mockito.when(sparkExecutionPluginContext.getInputSchema()).thenReturn(schema);
+    function.setOutputSchema(schema);
+    stageConfigurer = mock(StageConfigurer.class);
+    pipelineConfigurer = mock(PipelineConfigurer.class);
+    Mockito.when(pipelineConfigurer.getStageConfigurer()).thenReturn(stageConfigurer);
+    Mockito.when(stageConfigurer.getFailureCollector()).thenReturn(failureCollector);
+    Mockito.when(stageConfigurer.getInputSchema()).thenReturn(schema);
+    sparkPluginContext = mock(SparkPluginContext.class);
+    Mockito.when(sparkPluginContext.getFailureCollector()).thenReturn(failureCollector);
+    Mockito.when(sparkPluginContext.getInputSchema()).thenReturn(schema);
+    Mockito.when(config.isFrameDefinitionUnboundedFollowing()).thenReturn(false);
+    Mockito.when(config.isFrameDefinitionUnboundedPreceding()).thenReturn(false);
   }
 
   @Test
@@ -115,6 +148,40 @@ public class WindowAggregationTest {
       relationalTranformContext, relation, failureCollector, expressionFactory);
     Assert.assertNotNull(windowAggregationDefinition);
     Assert.assertEquals(failureCollector.getValidationFailures().size(), 0);
+  }
+
+  @Test
+  public void testInitialize() {
+    try {
+      windowAggregation.initialize(sparkExecutionPluginContext);
+    } catch (Exception e) {
+      Assert.fail("Exception not expected");
+    }
+  }
+
+  @Test
+  public void testPrepareRun() {
+    try {
+      Mockito.when(config.getWindowFrameType()).thenReturn(WindowAggregationConfig.WindowFrameType.NONE);
+      windowAggregation.prepareRun(sparkPluginContext);
+    } catch (Exception e) {
+      Assert.fail("Exception not expected");
+    }
+  }
+
+  @Test
+  public void testConfigurePipeline() {
+    try {
+      windowAggregation.configurePipeline(pipelineConfigurer);
+    } catch (Exception e) {
+      Assert.fail("Exception not expected");
+    }
+  }
+
+  @Test
+  public void testCanUseEngine() {
+    boolean useEngine = windowAggregation.canUseEngine(engine);
+    Assert.assertTrue(useEngine);
   }
 }
 
