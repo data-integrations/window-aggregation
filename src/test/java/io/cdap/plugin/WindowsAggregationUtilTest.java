@@ -30,13 +30,19 @@ import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.UDFRegistration;
+import org.apache.spark.sql.catalyst.expressions.SpecifiedWindowFrame;
+import org.apache.spark.sql.catalyst.expressions.ValueFollowing;
+import org.apache.spark.sql.catalyst.expressions.ValuePreceding;
 import org.apache.spark.sql.expressions.UserDefinedAggregateFunction;
+import org.apache.spark.sql.expressions.Window;
+import org.apache.spark.sql.expressions.WindowSpec;
 import org.apache.spark.sql.types.StructType;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.security.InvalidParameterException;
@@ -67,6 +73,8 @@ public class WindowsAggregationUtilTest {
   @Mock private UDFRegistration udfRegistration;
   @Mock private UserDefinedAggregateFunction userDefinedAggregateFunction;
   private Schema schema;
+  private MockedStatic<DataFrames> mockStatic;
+  private MockedConstruction<SQLContext> mocked;
 
   @Before
   public void setUp() {
@@ -125,10 +133,11 @@ public class WindowsAggregationUtilTest {
                                                             function, "field", new String[]{"1"}, null);
     functionInfos.add(functionInfo);
     config = Mockito.mock(WindowAggregationConfig.class);
-
-    Mockito.when(config.getAggregates(failureCollector)).thenReturn(functionInfos);
     data = Mockito.mock(Dataset.class);
+    udfRegistration = Mockito.mock(UDFRegistration.class);
     javaRDDRow = Mockito.mock(JavaRDD.class);
+    structSchema = Mockito.mock(StructType.class);
+    Mockito.when(config.getAggregates(failureCollector)).thenReturn(functionInfos);
     javaRDDSR = Mockito.mock(JavaRDD.class);
     javaSparkContext = Mockito.mock(JavaSparkContext.class);
     sparkExecutionPluginContext = Mockito.mock(SparkExecutionPluginContext.class);
@@ -145,12 +154,9 @@ public class WindowsAggregationUtilTest {
     schema = recordOf("test", schemaFields);
 
     Mockito.when(data.withColumn(Mockito.anyString(), Mockito.any(Column.class))).thenReturn(data);
-    structSchema = Mockito.mock(StructType.class);
-    Mockito.when(config.getWindowFrameType()).thenReturn(WindowAggregationConfig.WindowFrameType.ROW);
     Mockito.when(config.getFrameDefinitionPrecedingBound()).thenReturn(1L);
     Mockito.when(config.getFrameDefinitionFollowingBound()).thenReturn(2L);
     Mockito.when(data.withColumn(Mockito.anyString(), Mockito.nullable(Column.class))).thenReturn(data);
-    udfRegistration = Mockito.mock(UDFRegistration.class);
     userDefinedAggregateFunction = Mockito.mock(UserDefinedAggregateFunction.class);
     Mockito.when(udfRegistration.register(Mockito.anyString(), Mockito.any(DiscretePercentile.class)))
       .thenReturn(userDefinedAggregateFunction);
@@ -159,35 +165,117 @@ public class WindowsAggregationUtilTest {
   }
 
   @Test
-  public void testTransform() {
-     try (MockedConstruction<SQLContext> mocked = Mockito.mockConstruction(SQLContext.class,
-      (mock, context) -> {
-        Mockito.when(mock.createDataFrame(javaRDDRow, structSchema)).thenReturn(data);
-        Mockito.when(mock.udf()).thenReturn(udfRegistration);
-        Mockito.mockStatic(DataFrames.class).when(DataFrames.toDataType(schema)).thenReturn(structSchema);
-     })) {
-       JavaRDD<StructuredRecord> result = WindowsAggregationUtil.transform(sparkExecutionPluginContext, javaRDDSR,
-         config, schema, schema);
-       Assert.assertNotNull(result);
-     } catch (Exception e) {
-       Assert.fail("Exception not expected");
-     }
+  public void testTransformForRange() {
+    try {
+      if (mocked == null || mocked.isClosed()) {
+        mocked = Mockito.mockConstruction(SQLContext.class,
+          (mock, context) -> {
+            Mockito.when(mock.createDataFrame(javaRDDRow, structSchema)).thenReturn(data);
+            Mockito.when(mock.udf()).thenReturn(udfRegistration);
+            mockStatic = Mockito.mockStatic(DataFrames.class);
+            mockStatic.when(DataFrames.toDataType(schema)).thenReturn(structSchema);
+          });
+      }
+      Mockito.when(config.getWindowFrameType()).thenReturn(WindowAggregationConfig.WindowFrameType.RANGE);
+      JavaRDD<StructuredRecord> result = WindowsAggregationUtil.transform(sparkExecutionPluginContext, javaRDDSR,
+                                                                          config, schema, schema);
+      Assert.assertNotNull(result);
+    } catch (Exception e) {
+      Assert.fail("Exception not expected");
+    } finally {
+      if (mockStatic != null && mocked != null) {
+        mockStatic.closeOnDemand();
+        mocked.closeOnDemand();
+      }
+    }
+  }
+
+  @Test
+  public void testTransformForRow() {
+    try {
+      if (mocked == null) {
+        mocked = Mockito.mockConstruction(SQLContext.class,
+          (mock, context) -> {
+            Mockito.when(mock.createDataFrame(javaRDDRow, structSchema)).thenReturn(data);
+            Mockito.when(mock.udf()).thenReturn(udfRegistration);
+            mockStatic = Mockito.mockStatic(DataFrames.class);
+            mockStatic.when(DataFrames.toDataType(schema)).thenReturn(structSchema);
+          });
+      }
+      Mockito.when(config.getWindowFrameType()).thenReturn(WindowAggregationConfig.WindowFrameType.ROW);
+      JavaRDD<StructuredRecord> result = WindowsAggregationUtil.transform(sparkExecutionPluginContext, javaRDDSR,
+                                                config, schema, schema);
+      Assert.assertNotNull(result);
+    } catch (Exception e) {
+      Assert.fail("Exception not expected");
+    } finally {
+      if (mockStatic != null && mocked != null) {
+        mockStatic.closeOnDemand();
+        mocked.closeOnDemand();
+      }
+    }
   }
 
   @Test(expected = InvalidParameterException.class)
   public void testInvalidParameter() {
-    try (MockedConstruction<SQLContext> mocked = Mockito.mockConstruction(SQLContext.class,
-      (mock, context) -> {
-        Mockito.when(mock.createDataFrame(javaRDDRow, structSchema)).thenReturn(data);
-        Mockito.when(mock.udf()).thenReturn(udfRegistration);
-        Mockito.mockStatic(DataFrames.class).when(DataFrames.toDataType(schema)).thenReturn(structSchema);
-      })) {
+    try {
+      if (mocked == null || mocked.isClosed()) {
+        mocked = Mockito.mockConstruction(SQLContext.class,
+                                          (mock, context) -> {
+          Mockito.when(mock.createDataFrame(javaRDDRow, structSchema)).thenReturn(data);
+            Mockito.when(mock.udf()).thenReturn(udfRegistration);
+            mockStatic = Mockito.mockStatic(DataFrames.class);
+            mockStatic.when(DataFrames.toDataType(schema)).thenReturn(structSchema);
+          });
+      }
+      Mockito.when(config.getWindowFrameType()).thenReturn(WindowAggregationConfig.WindowFrameType.ROW);
       function = WindowAggregationConfig.Function.N_TILE;
       functionInfo = new WindowAggregationConfig.FunctionInfo("alias", function, "field",
         new String[]{}, null);
       functionInfos.add(functionInfo);
       JavaRDD<StructuredRecord> result = WindowsAggregationUtil.transform(sparkExecutionPluginContext, javaRDDSR,
                                                                           config, schema, schema);
+    } finally {
+        if (mockStatic != null && mocked != null) {
+          mockStatic.closeOnDemand();
+          mocked.closeOnDemand();
+        }
     }
+  }
+
+  @Test
+  public void testWindowSpec() throws NoSuchFieldException, IllegalAccessException {
+    WindowSpec spec = Window.partitionBy(WindowsAggregationUtil.getPartitionsColumns(config.getPartitionFields()))
+                            .orderBy(WindowsAggregationUtil.getPartitionOrderColumns(config.getPartitionOrder()));
+    spec = spec.rangeBetween(1,
+                     2);
+    //The frame of the spec returns the value "1 FOLLOWING AND 2 FOLLOWING"
+
+    java.lang.reflect.Field c = spec.getClass().getDeclaredField("frame");
+    c.setAccessible(true);
+    SpecifiedWindowFrame frame = (SpecifiedWindowFrame) c.get(spec);
+
+    Assert.assertTrue(frame.frameStart().equals(ValueFollowing.apply(1)));
+    Assert.assertTrue(frame.frameEnd().equals(ValueFollowing.apply(2)));
+    spec = spec.rangeBetween(-1,
+                             2);
+    //The frame of the spec returns the value "1 PRECEDING AND 2 FOLLOWING"
+
+    c = spec.getClass().getDeclaredField("frame");
+    c.setAccessible(true);
+    frame = (SpecifiedWindowFrame) c.get(spec);
+
+    Assert.assertTrue(frame.frameStart().equals(ValuePreceding.apply(1)));
+    Assert.assertTrue(frame.frameEnd().equals(ValueFollowing.apply(2)));
+
+    spec = spec.rangeBetween(2, -4);
+    c = spec.getClass().getDeclaredField("frame");
+    c.setAccessible(true);
+    frame = (SpecifiedWindowFrame) c.get(spec);
+
+    //The frame of the spec returns the value "2 FOLLOWING AND 4 PRECEDING "
+
+    Assert.assertTrue(frame.frameStart().equals(ValueFollowing.apply(2)));
+    Assert.assertTrue(frame.frameEnd().equals(ValuePreceding.apply(4)));
   }
 }
