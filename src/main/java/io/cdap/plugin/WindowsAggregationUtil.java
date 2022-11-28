@@ -15,6 +15,7 @@
  */
 package io.cdap.plugin;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import io.cdap.cdap.api.data.format.StructuredRecord;
 import io.cdap.cdap.api.data.schema.Schema;
@@ -197,7 +198,8 @@ final class WindowsAggregationUtil {
     return schemaField.getSchema();
   }
 
-  private static Column[] getPartitionsColumns(List<String> partitionsFields) {
+  @VisibleForTesting
+  public static Column[] getPartitionsColumns(List<String> partitionsFields) {
     return partitionsFields.stream().map(Column::new).toArray(Column[]::new);
   }
 
