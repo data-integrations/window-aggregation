@@ -31,12 +31,12 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.UDFRegistration;
 import org.apache.spark.sql.catalyst.expressions.CurrentRow;
+import org.apache.spark.sql.catalyst.expressions.Literal;
 import org.apache.spark.sql.catalyst.expressions.SpecifiedWindowFrame;
-import org.apache.spark.sql.catalyst.expressions.ValueFollowing;
-import org.apache.spark.sql.catalyst.expressions.ValuePreceding;
 import org.apache.spark.sql.expressions.UserDefinedAggregateFunction;
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.expressions.WindowSpec;
+import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.junit.Assert;
 import org.junit.Before;
@@ -249,26 +249,24 @@ public class WindowsAggregationUtilTest {
     String field = "frame";
     WindowSpec spec = Window.partitionBy(WindowsAggregationUtil.getPartitionsColumns(config.getPartitionFields()))
                             .orderBy(WindowsAggregationUtil.getPartitionOrderColumns(config.getPartitionOrder()));
-    spec = spec.rangeBetween(1,
-                     2);
+    spec = spec.rangeBetween(1, 2);
     //The frame of the spec returns the value "1 FOLLOWING AND 2 FOLLOWING"
 
     java.lang.reflect.Field c = spec.getClass().getDeclaredField(field);
     c.setAccessible(true);
     SpecifiedWindowFrame frame = (SpecifiedWindowFrame) c.get(spec);
 
-    Assert.assertTrue(frame.frameStart().equals(ValueFollowing.apply(1)));
-    Assert.assertTrue(frame.frameEnd().equals(ValueFollowing.apply(2)));
-    spec = spec.rowsBetween(2,
-                             -2);
+    Assert.assertTrue(frame.lower().equals(new Literal(1L, DataTypes.LongType)));
+    Assert.assertTrue(frame.upper().equals(new Literal(2L, DataTypes.LongType)));
+    spec = spec.rowsBetween(2, -2);
     //The frame of the spec returns the value "2 FOLLOWING AND 2 PRECEDING"
 
     c = spec.getClass().getDeclaredField(field);
     c.setAccessible(true);
     frame = (SpecifiedWindowFrame) c.get(spec);
 
-    Assert.assertTrue(frame.frameStart().equals(ValueFollowing.apply(2)));
-    Assert.assertTrue(frame.frameEnd().equals(ValuePreceding.apply(2)));
+    Assert.assertTrue(frame.lower().equals(new Literal(2, DataTypes.IntegerType)));
+    Assert.assertTrue(frame.upper().equals(new Literal(-2, DataTypes.IntegerType)));
 
     spec = spec.rangeBetween(2, -4);
     c = spec.getClass().getDeclaredField(field);
@@ -277,8 +275,8 @@ public class WindowsAggregationUtilTest {
 
     //The frame of the spec returns the value "2 FOLLOWING AND 4 PRECEDING "
 
-    Assert.assertTrue(frame.frameStart().equals(ValueFollowing.apply(2)));
-    Assert.assertTrue(frame.frameEnd().equals(ValuePreceding.apply(4)));
+    Assert.assertTrue(frame.lower().equals(new Literal(2L, DataTypes.LongType)));
+    Assert.assertTrue(frame.upper().equals(new Literal(-4L, DataTypes.LongType)));
 
     spec = spec.rangeBetween(0, 0);
     c = spec.getClass().getDeclaredField(field);
@@ -287,7 +285,7 @@ public class WindowsAggregationUtilTest {
 
     //The frame of the spec returns the value "CURRENT ROW AND CURRENT ROW "
 
-    Assert.assertTrue(frame.frameStart().toString().equals(CurrentRow.toString()));
-    Assert.assertTrue(frame.frameEnd().toString().equals(CurrentRow.toString()));
+    Assert.assertTrue(frame.lower().toString().equals(CurrentRow.toString()));
+    Assert.assertTrue(frame.upper().toString().equals(CurrentRow.toString()));
   }
 }
