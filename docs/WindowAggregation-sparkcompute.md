@@ -11,6 +11,11 @@ Use Case
 The transform is used when you want to calculate some basic aggregations in your data similar
 to what you could do with a window function in SQL.
 
+BigQuery ELT Transformation Pushdown
+------------------------------------
+Window Aggregation stages are now eligible to execute in BigQuery when BigQuery ELT Transformation Pushdown is enabled in a pipeline.
+Window Aggregation stages will be executed in BigQuery when a preceding stage has already been executed in BigQuery (such as a Join operation or another supported stage).
+
 Properties
 ----------
 **Partition fields:** Specifies a list of fields, comma-separated, to partition the data by. 
