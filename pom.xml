@@ -22,7 +22,7 @@
 
   <groupId>io.cdap.plugin</groupId>
   <artifactId>window-aggregator</artifactId>
-  <version>1.0.1-SNAPSHOT</version>
+  <version>1.0.3-SNAPSHOT</version>
 
   <properties>
     <!-- properties for script build step that creates the config files for the artifacts -->
@@ -117,7 +117,6 @@
       <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-etl-proto</artifactId>
       <version>${cdap.version}</version>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
