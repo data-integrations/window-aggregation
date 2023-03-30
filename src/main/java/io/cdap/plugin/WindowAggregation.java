@@ -99,9 +99,8 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
   }
 
   private static Optional<ExpressionFactory<String>> getExpressionFactory(RelationalTranformContext ctx,
-                                                                          WindowAggregationConfig config,
-                                                                          FailureCollector failureCollector) {
-    List<WindowAggregationConfig.FunctionInfo> functionInfos = config.getAggregates(failureCollector);
+                                                                          WindowAggregationConfig config) {
+    List<WindowAggregationConfig.FunctionInfo> functionInfos = config.getAggregates();
 
     for (WindowAggregationConfig.FunctionInfo aggregate : functionInfos) {
       WindowAggregationConfig.Function func = aggregate.getFunction();
@@ -464,10 +463,9 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
 
   @Override
   public Relation transform(RelationalTranformContext relationalTranformContext, Relation relation) {
-    FailureCollector failureCollector = new SimpleFailureCollector();
     // If the expression factory is not present, this aggregation cannot be handled by the plugin.
     Optional<ExpressionFactory<String>> expressionFactory = getExpressionFactory(relationalTranformContext,
-      config, failureCollector);
+      config);
 
     // If the expression factory is not present, this aggregation cannot be handled by the plugin.
     if (!expressionFactory.isPresent()) {
