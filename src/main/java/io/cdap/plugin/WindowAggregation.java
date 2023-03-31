@@ -351,6 +351,8 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
       } else if (windowFrameType == WindowAggregationConfig.WindowFrameType.RANGE) {
         windowFrameTypeValue = WindowAggregationDefinition.WindowFrameType.RANGE;
       }
+    } else {
+      windowFrameTypeValue = WindowAggregationDefinition.WindowFrameType.NONE;
     }
 
     List<Expression> partitionExpressions = setPartitionExpressions(config.getPartitionFields(), relation,
