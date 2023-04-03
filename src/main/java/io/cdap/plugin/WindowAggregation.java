@@ -15,6 +15,7 @@
  */
 package io.cdap.plugin;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import io.cdap.cdap.api.annotation.Description;
@@ -79,13 +80,13 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
       put(WindowAggregationConfig.Function.ROW_NUMBER, "ROW_NUMBER()");
       put(WindowAggregationConfig.Function.MEDIAN, "PERCENTILE_CONT(%s, 0.5)");
       put(WindowAggregationConfig.Function.CONTINUOUS_PERCENTILE,
-        "PERCENTILE_CONT(%s,%s) OVER()");
+        "PERCENTILE_CONT(%s, %s)");
       put(WindowAggregationConfig.Function.DISCRETE_PERCENTILE,
-        "PERCENTILE_DISC(%s,%s) OVER()");
-      put(WindowAggregationConfig.Function.LEAD, "LEAD(%s)");
-      put(WindowAggregationConfig.Function.LAG, "LAG(%s)");
-      put(WindowAggregationConfig.Function.FIRST, "FIRST_VALUE(%s)");
-      put(WindowAggregationConfig.Function.LAST, "LAST_VALUE(%s)");
+        "PERCENTILE_DISC(%s, %s)");
+      put(WindowAggregationConfig.Function.LEAD, "LEAD(%s, %s)");
+      put(WindowAggregationConfig.Function.LAG, "LAG(%s, %s)");
+      put(WindowAggregationConfig.Function.FIRST, "FIRST_VALUE(%s %s NULLS)");
+      put(WindowAggregationConfig.Function.LAST, "LAST_VALUE(%s %s NULLS)");
       put(WindowAggregationConfig.Function.CUMULATIVE_DISTRIBUTION, "CUME_DIST()");
       put(WindowAggregationConfig.Function.ACCUMULATE, "SUM(%s)");
     }};
@@ -457,11 +458,52 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
         failureCollector.addFailure(String.format("BigQuery capability does not exist for function %s", alias)
           , null);
       }
-      String selectSql = String.format(functionBQSqlMap.get(function), columnName);
+      // build Select SQL Function call based on the specified function.
+      String selectSql = getColumnSelectionExpression(aggregate, columnName);
       aggregateExpressions.put(alias, expressionFactory.compile(selectSql));
       continue;
     }
     return aggregateExpressions;
+  }
+
+  /**
+   * Get the SQL selection statement for a given aggregate function.
+   *
+   * @param aggregate Function information
+   * @param columnName Column name
+   * @return String representing the selection expression for this column.
+   */
+  @VisibleForTesting
+  String getColumnSelectionExpression(WindowAggregationConfig.FunctionInfo aggregate, String columnName) {
+    WindowAggregationConfig.Function function = aggregate.getFunction();
+
+    // build Select SQL Function call based on the specified function.
+    String selectSql;
+    switch (function) {
+      // Functions that need the column name and wether to respect/ignore nulls
+      case FIRST:
+      case LAST:
+        boolean ignoreNull = aggregate.isIgnoreNull();
+        if (aggregate.getArgs().length != 0) {
+          ignoreNull = ignoreNull || Boolean.parseBoolean(aggregate.getArgs()[0]);
+        }
+        String respectOrIgnoreNulls = ignoreNull ? "IGNORE" : "RESPECT";
+        return String.format(functionBQSqlMap.get(function), columnName, respectOrIgnoreNulls);
+      // Functions that only need the first positional argument
+      case N_TILE:
+        return String.format(functionBQSqlMap.get(function), aggregate.getArgs()[0]);
+      // Functions that need the column name and first positional argument
+      case CONTINUOUS_PERCENTILE:
+      case DISCRETE_PERCENTILE:
+      case LEAD:
+      case LAG:
+        return String.format(functionBQSqlMap.get(function), columnName, aggregate.getArgs()[0]);
+      // For all other functions, we supply the column name.
+      default:
+        selectSql = String.format(functionBQSqlMap.get(function), columnName);
+    }
+
+    return selectSql;
   }
 
   @Override

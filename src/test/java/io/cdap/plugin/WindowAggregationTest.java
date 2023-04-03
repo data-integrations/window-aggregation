@@ -28,8 +28,9 @@ import io.cdap.cdap.etl.api.relational.Engine;
 import io.cdap.cdap.etl.api.relational.ExpressionFactory;
 import io.cdap.cdap.etl.api.relational.Relation;
 import io.cdap.cdap.etl.api.relational.RelationalTranformContext;
-
 import io.cdap.cdap.etl.proto.validation.SimpleFailureCollector;
+import io.cdap.plugin.WindowAggregationConfig.Function;
+import io.cdap.plugin.WindowAggregationConfig.FunctionInfo;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -87,7 +88,7 @@ public class WindowAggregationTest {
     config = mock(WindowAggregationConfig.class);
     function = WindowAggregationConfig.Function.FIRST;
     functionInfo = new WindowAggregationConfig.FunctionInfo("alias",
-            function, "field", null, null);
+            function, "field", new String[]{"123"}, null);
     functionInfos = new ArrayList<>();
     functionInfos.add(functionInfo);
     engine = mock(Engine.class);
@@ -183,5 +184,159 @@ public class WindowAggregationTest {
     boolean useEngine = windowAggregation.canUseEngine(engine);
     Assert.assertTrue(useEngine);
   }
+
+  @Test
+  public void getBQColumnSelectionSQL_first() {
+    WindowAggregationConfig.FunctionInfo firstIgnoreNulls1 =
+        new FunctionInfo("a1", Function.FIRST, "c1", new String[]{"true"}, "false");
+    Assert.assertEquals("FIRST_VALUE(colname IGNORE NULLS)",
+        windowAggregation.getColumnSelectionExpression(firstIgnoreNulls1, "colname"));
+
+    WindowAggregationConfig.FunctionInfo firstIgnoreNulls2 =
+        new FunctionInfo("a1", Function.FIRST, "c1", new String[]{}, "true");
+    Assert.assertEquals("FIRST_VALUE(colname IGNORE NULLS)",
+        windowAggregation.getColumnSelectionExpression(firstIgnoreNulls2, "colname"));
+
+    WindowAggregationConfig.FunctionInfo firstRespectNulls =
+        new FunctionInfo("a1", Function.FIRST, "c1", new String[]{}, "false");
+    Assert.assertEquals("FIRST_VALUE(colname RESPECT NULLS)",
+        windowAggregation.getColumnSelectionExpression(firstRespectNulls, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_last() {
+    WindowAggregationConfig.FunctionInfo lastIgnoreNulls1 =
+        new FunctionInfo("a1", Function.LAST, "c1", new String[]{"true"}, "false");
+    Assert.assertEquals("LAST_VALUE(colname IGNORE NULLS)",
+        windowAggregation.getColumnSelectionExpression(lastIgnoreNulls1, "colname"));
+
+    WindowAggregationConfig.FunctionInfo lastIgnoreNulls2 =
+        new FunctionInfo("a1", Function.LAST, "c1", new String[]{}, "true");
+    Assert.assertEquals("LAST_VALUE(colname IGNORE NULLS)",
+        windowAggregation.getColumnSelectionExpression(lastIgnoreNulls2, "colname"));
+
+    WindowAggregationConfig.FunctionInfo lastRespectNulls =
+        new FunctionInfo("a1", Function.LAST, "c1", new String[]{}, "false");
+    Assert.assertEquals("LAST_VALUE(colname RESPECT NULLS)",
+        windowAggregation.getColumnSelectionExpression(lastRespectNulls, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_ntile() {
+    WindowAggregationConfig.FunctionInfo nTile2 =
+        new FunctionInfo("a1", Function.N_TILE, "c1", new String[]{"2"}, "false");
+    Assert.assertEquals("NTILE(2)",
+        windowAggregation.getColumnSelectionExpression(nTile2, "colname"));
+
+    WindowAggregationConfig.FunctionInfo nTile10 =
+        new FunctionInfo("a1", Function.N_TILE, "c1", new String[]{"10"}, "false");
+    Assert.assertEquals("NTILE(10)",
+        windowAggregation.getColumnSelectionExpression(nTile10, "colname"));
+
+    WindowAggregationConfig.FunctionInfo nTile999 =
+        new FunctionInfo("a1", Function.N_TILE, "c1", new String[]{"999"}, "false");
+    Assert.assertEquals("NTILE(999)",
+        windowAggregation.getColumnSelectionExpression(nTile999, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_continous_percentile() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.CONTINUOUS_PERCENTILE, "c1", new String[]{"0.1234"}, "false");
+    Assert.assertEquals("PERCENTILE_CONT(colname, 0.1234)",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_discrete_percentile() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.DISCRETE_PERCENTILE, "c1", new String[]{"0.1234"}, "false");
+    Assert.assertEquals("PERCENTILE_DISC(colname, 0.1234)",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_lead() {
+    WindowAggregationConfig.FunctionInfo lead1 =
+        new FunctionInfo("a1", Function.LEAD, "c1", new String[]{"1"}, "false");
+    Assert.assertEquals("LEAD(colname, 1)",
+        windowAggregation.getColumnSelectionExpression(lead1, "colname"));
+
+    WindowAggregationConfig.FunctionInfo lead99 =
+        new FunctionInfo("a1", Function.LEAD, "c1", new String[]{"99"}, "false");
+    Assert.assertEquals("LEAD(colname, 99)",
+        windowAggregation.getColumnSelectionExpression(lead99, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_lag() {
+    WindowAggregationConfig.FunctionInfo lag1 =
+        new FunctionInfo("a1", Function.LAG, "c1", new String[]{"1"}, "false");
+    Assert.assertEquals("LAG(colname, 1)",
+        windowAggregation.getColumnSelectionExpression(lag1, "colname"));
+
+    WindowAggregationConfig.FunctionInfo lag99 =
+        new FunctionInfo("a1", Function.LAG, "c1", new String[]{"99"}, "false");
+    Assert.assertEquals("LAG(colname, 99)",
+        windowAggregation.getColumnSelectionExpression(lag99, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_rank() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.RANK, "c1", new String[]{"1"}, "false");
+    Assert.assertEquals("RANK()",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_dense_rank() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.DENSE_RANK, "c1", new String[]{"1"}, "false");
+    Assert.assertEquals("DENSE_RANK()",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_percent_rank() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.PERCENT_RANK, "c1", new String[]{"1"}, "false");
+    Assert.assertEquals("PERCENT_RANK()",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_row_number() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.ROW_NUMBER, "c1", new String[]{"1"}, "false");
+    Assert.assertEquals("ROW_NUMBER()",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_median() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.MEDIAN, "c1", new String[]{"0.1234"}, "false");
+    Assert.assertEquals("PERCENTILE_CONT(colname, 0.5)",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+  @Test
+  public void getBQColumnSelectionSQL_cumulative_distribution() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.CUMULATIVE_DISTRIBUTION, "c1", new String[]{"0.1234"}, "false");
+    Assert.assertEquals("CUME_DIST()",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
+
+  @Test
+  public void getBQColumnSelectionSQL_accumulate() {
+    WindowAggregationConfig.FunctionInfo func =
+        new FunctionInfo("a1", Function.ACCUMULATE, "c1", new String[]{"0.1234"}, "false");
+    Assert.assertEquals("SUM(colname)",
+        windowAggregation.getColumnSelectionExpression(func, "colname"));
+  }
+
 }
 
