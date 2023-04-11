@@ -127,15 +127,17 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
       return;
     }
 
-    validate(inputSchema, failureCollector);
+    validate(inputSchema, failureCollector, aggregates);
     failureCollector.getOrThrowException();
     stageConfigurer.setOutputSchema(getOutputSchema(inputSchema, aggregates));
   }
 
-  private void validate(Schema inputSchema, FailureCollector collector) {
+  private void validate(Schema inputSchema, FailureCollector collector,
+                        List<WindowAggregationConfig.FunctionInfo> aggregates) {
     List<String> partitionFields = config.getPartitionFields();
-    List<WindowAggregationConfig.FunctionInfo> aggregates = config.getAggregates(failureCollector);
     List<String> partitionOrderFields = config.getPartitionOrderFields();
+    WindowAggregationConfig.WindowFrameType frameType = config.getWindowFrameType();
+
     for (String partitionField : partitionFields) {
       Schema.Field field = inputSchema.getField(partitionField);
       if (field == null) {
@@ -147,6 +149,11 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
 
     for (WindowAggregationConfig.FunctionInfo functionInfo : aggregates) {
       String functionFieldName = functionInfo.getFieldName();
+      WindowAggregationConfig.Function function = functionInfo.getFunction();
+      validateClauseConstraints(partitionFields, partitionOrderFields, frameType, function, collector);
+      validateSpecialCase(partitionFields, partitionOrderFields, frameType, function, collector);
+      validateArguments(functionInfo.getArgs(), function, collector);
+
       if (Strings.isNullOrEmpty(functionFieldName)) {
         continue; //function will operate over partitions fields
       }
@@ -163,7 +170,6 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
         inputFieldSchema = inputField.getSchema();
       }
 
-      WindowAggregationConfig.Function function = functionInfo.getFunction();
       //check input schema
       Schema allowedInputSchema = function.getAllowedInputSchema();
 
@@ -204,6 +210,154 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     }
   }
 
+  private void validateClauseConstraints(List<String> partitionFields,
+                                         List<String> partitionOrderFields,
+                                         WindowAggregationConfig.WindowFrameType frameType,
+                                         WindowAggregationConfig.Function function,
+                                         FailureCollector collector) {
+
+    if (function.getPartitioning().equals(WindowAggregationConfig.ClauseConstraint.REQUIRED)) {
+      if (partitionFields.size() <= 0) {
+        collector.addFailure(
+          String.format("%s is missing. It is a required clause for function : %s.",
+                        WindowAggregationConfig.NAME_PARTITION_FIELD, function.name()),
+          "Please add a field.").
+          withConfigProperty(WindowAggregationConfig.NAME_PARTITION_FIELD);
+      }
+    } else if (function.getPartitioning().equals(WindowAggregationConfig.ClauseConstraint.NOT_SUPPORTED)) {
+      if (partitionFields.size() > 0) {
+        collector.addFailure(
+          String.format("%s is not supported for function : %s.", WindowAggregationConfig.NAME_PARTITION_FIELD,
+                        function.name()), "Please remove this clause.").
+          withConfigProperty(WindowAggregationConfig.NAME_PARTITION_FIELD);
+      }
+    }
+
+    if (function.getOrdering().equals(WindowAggregationConfig.ClauseConstraint.REQUIRED)) {
+      if (partitionOrderFields.size() <= 0) {
+        collector.addFailure(
+          String.format("%s is missing. It is a required clause for function : %s.",
+                        WindowAggregationConfig.NAME_PARTITION_ORDER, function.name()),
+          "Please add at least 1 field").
+          withConfigProperty(WindowAggregationConfig.NAME_PARTITION_ORDER);
+      }
+    } else if (function.getOrdering().equals(WindowAggregationConfig.ClauseConstraint.NOT_SUPPORTED)) {
+      if (partitionOrderFields.size() > 0) {
+        collector.addFailure(
+          String.format("%s is not supported for function : %s.", WindowAggregationConfig.NAME_PARTITION_ORDER,
+                        function.name()), "Please remove this clause.").
+          withConfigProperty(WindowAggregationConfig.NAME_PARTITION_ORDER);
+      }
+    }
+
+    if (function.getWindowFrame().equals(WindowAggregationConfig.ClauseConstraint.REQUIRED)) {
+      if (frameType.equals(WindowAggregationConfig.WindowFrameType.NONE)) {
+        collector.addFailure(
+          String.format("%s is missing. It is a required clause for function : %s.",
+                        WindowAggregationConfig.NAME_WINDOW_TYPE, function.name()),
+          "Please add a window frame.").
+          withConfigProperty(WindowAggregationConfig.NAME_WINDOW_TYPE);
+      }
+    } else if (function.getWindowFrame().equals(WindowAggregationConfig.ClauseConstraint.NOT_SUPPORTED)) {
+      if (!frameType.equals(WindowAggregationConfig.WindowFrameType.NONE)) {
+        collector.addFailure(
+          String.format("%s is not supported for function : %s.", WindowAggregationConfig.NAME_WINDOW_TYPE,
+                        function.name()),
+          String.format("Please change to %s", WindowAggregationConfig.WindowFrameType.NONE)).
+          withConfigProperty(WindowAggregationConfig.NAME_WINDOW_TYPE);
+      }
+    }
+  }
+
+  private void validateSpecialCase(List<String> partitionFields,
+                                   List<String> partitionOrderFields,
+                                   WindowAggregationConfig.WindowFrameType frameType,
+                                   WindowAggregationConfig.Function function,
+                                   FailureCollector collector) {
+    // For Accumulate , if the the frameType is RANGE, then it requires exactly 1 ordering clause
+    if (function.equals(WindowAggregationConfig.Function.ACCUMULATE)
+    && frameType.equals(WindowAggregationConfig.WindowFrameType.RANGE)) {
+      if (partitionOrderFields.size() != 1) {
+        collector.addFailure(
+          String.format("%s needs have exactly one clause when using %s frametype for function : %s.",
+                        WindowAggregationConfig.NAME_PARTITION_ORDER, WindowAggregationConfig.WindowFrameType.RANGE,
+                        function.name()),
+          "Make sure there is only 1 ordering field").
+          withConfigProperty(WindowAggregationConfig.NAME_PARTITION_ORDER);
+      }
+    }
+  }
+
+  private void validateArguments(String[] arguments,
+                                 WindowAggregationConfig.Function function,
+                                 FailureCollector collector) {
+    //Ref :  https://cloud.google.com/bigquery/docs/reference/standard-sql/numbering_functions#ntile
+    if (function.equals(WindowAggregationConfig.Function.N_TILE)) {
+      if (arguments.length != 1) {
+        collector.addFailure(
+          String.format("%s takes exactly 1 argument.", WindowAggregationConfig.Function.N_TILE),
+          "Make sure there is only one argument specified").
+          withConfigProperty(WindowAggregationConfig.NAME_AGGREGATES);
+      } else {
+        try {
+          int percentage = Integer.parseInt(arguments[0].trim());
+          if (percentage < 1) {
+            throw new IllegalArgumentException();
+          }
+        } catch (IllegalArgumentException e) {
+          collector.addFailure(
+            String.format("%s needs an argument of type INTEGER greater than 0",
+                          WindowAggregationConfig.Function.N_TILE), "").
+            withConfigProperty(WindowAggregationConfig.NAME_AGGREGATES);
+        }
+      }
+    }
+
+    // ref : https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#percentile_cont
+    if (function.equals(WindowAggregationConfig.Function.CONTINUOUS_PERCENTILE)
+    || function.equals(WindowAggregationConfig.Function.DISCRETE_PERCENTILE)) {
+      if (arguments.length != 1) {
+        collector.addFailure(
+          String.format("%s takes exactly 1 argument.", function),
+          "Make sure there is only one argument specified").
+          withConfigProperty(WindowAggregationConfig.NAME_AGGREGATES);
+      } else {
+        try {
+          float percentile = Float.parseFloat(arguments[0].trim());
+          if (percentile < 0 || percentile > 1) {
+            throw new IllegalArgumentException();
+          }
+        } catch (IllegalArgumentException e) {
+          collector.addFailure(
+            String.format("%s needs an argument between [0,1]", function), "").
+            withConfigProperty(WindowAggregationConfig.NAME_AGGREGATES);
+        }
+      }
+    }
+
+    // ref : https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#lag
+    if ((function.equals(WindowAggregationConfig.Function.LEAD)
+      || function.equals(WindowAggregationConfig.Function.LAG))) {
+      if (arguments.length != 1) {
+        collector.addFailure(
+          String.format("%s takes only 1 argument.", function),
+          "Make sure there is only one argument specified").
+          withConfigProperty(WindowAggregationConfig.NAME_AGGREGATES);
+      } else {
+        try {
+          int  offset = Integer.parseInt(arguments[0].trim());
+          if (offset < 0) {
+            throw new IllegalArgumentException();
+          }
+        } catch (IllegalArgumentException e) {
+          collector.addFailure(
+            String.format("%s needs an non-negative Integer argument", function), "").
+            withConfigProperty(WindowAggregationConfig.NAME_AGGREGATES);
+        }
+      }
+    }
+  }
+
   private Schema getOutputSchema(Schema inputSchema, List<WindowAggregationConfig.FunctionInfo> aggregates) {
     List<Schema.Field> outputFields = new ArrayList<>(aggregates.size());
     List<Schema.Field> inputSchemaFields = inputSchema.getFields();
@@ -221,7 +375,7 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     super.prepareRun(context);
     FailureCollector failureCollector = context.getFailureCollector();
     List<WindowAggregationConfig.FunctionInfo> aggregates = config.getAggregates(failureCollector);
-    validate(context.getInputSchema(), failureCollector);
+    validate(context.getInputSchema(), failureCollector, aggregates);
     failureCollector.getOrThrowException();
     Schema outputSchema = getOutputSchema(context.getInputSchema(), aggregates);
     recordLineage(context, outputSchema);
@@ -232,7 +386,7 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     super.initialize(context);
     FailureCollector failureCollector = context.getFailureCollector();
     List<WindowAggregationConfig.FunctionInfo> aggregates = config.getAggregates(failureCollector);
-    validate(context.getInputSchema(), failureCollector);
+    validate(context.getInputSchema(), failureCollector, aggregates);
     failureCollector.getOrThrowException();
     outputSchema = getOutputSchema(context.getInputSchema(), aggregates);
   }

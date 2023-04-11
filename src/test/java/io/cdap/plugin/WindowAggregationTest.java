@@ -47,7 +47,8 @@ import static org.mockito.Mockito.mock;
 
 public class WindowAggregationTest {
   List<String> partitionFields;
-  String partitionOrderFields;
+  List<String> partitionOrderFields;
+  String partitionOrder;
   List<WindowAggregationConfig.FunctionInfo> functionInfos;
   WindowAggregationConfig.WindowFrameType windowFrameType;
   @Mock
@@ -83,7 +84,9 @@ public class WindowAggregationTest {
     partitionFields = new ArrayList<>();
     partitionFields.add("field");
     partitionFields.add("field2");
-    partitionOrderFields  = "field:Ascending";
+    partitionOrder = "field:Ascending";
+    partitionOrderFields = new ArrayList<>();
+    partitionOrderFields.add(partitionOrder);
     long dummy = 0;
     config = mock(WindowAggregationConfig.class);
     function = WindowAggregationConfig.Function.FIRST;
@@ -96,7 +99,8 @@ public class WindowAggregationTest {
     relationalTranformContext = mock(RelationalTranformContext.class);
     Mockito.when(config.getPartitionFields()).thenReturn(partitionFields);
     Mockito.when(relationalTranformContext.getEngine()).thenReturn(engine);
-    Mockito.when(config.getPartitionOrder()).thenReturn(partitionOrderFields);
+    Mockito.when(config.getPartitionOrder()).thenReturn(partitionOrder);
+    Mockito.when(config.getPartitionOrderFields()).thenReturn(partitionOrderFields);
     Mockito.when(config.getWindowFrameType()).thenReturn(windowFrameType);
     Mockito.when(config.isFrameDefinitionUnboundedPreceding()).thenReturn(false);
     Mockito.when(config.isFrameDefinitionUnboundedFollowing()).thenReturn(false);
