@@ -58,18 +58,18 @@ framework will decide on the number to use.
 
 | Function | Partition fields | Order | Frame Type | 
 | :------------ | :------: | :----- | :---------- |
-| rank                    | required  | required      | not supported |
-| dense_rank              | required  | required      | not supported |
-| percent_rank            | required  | required      | not supported |
-| n_tile                  | required  | required      | not supported |
-| row_number              | required  | required      | not supported |
-| continous_percentile    | required  | not supported | not supported |
-| lead                    | required  | required      | not supported |
-| lag                     | required  | required      | not supported |
-| first                   | required  | required      | optional      |
-| last                    | required  | required      | optional      |
-| cumulative_distribution | required  | required      | not supported |
-| accumulate              | required  | optional      | optional      |
+| rank                    | Required  | Required      | Not supported |
+| dense_rank              | Required  | Required      | Not supported |
+| percent_rank            | Required  | Required      | Not supported |
+| n_tile                  | Required  | Required      | Not supported |
+| row_number              | Required  | Required      | Not supported |
+| continous_percentile    | Required  | Not supported | Not supported |
+| lead                    | Required  | Required      | Not supported |
+| lag                     | Required  | Required      | Not supported |
+| first                   | Required  | Required      | Optional      |
+| last                    | Required  | Required      | Optional      |
+| cumulative_distribution | Required  | Required      | Not supported |
+| accumulate              | Required  | Optional      | Optional      |
 
 **Functions with Arguments:**
 There are few functions which require the `field` and `argument` as per the syntax `alias:function(field,encoded(arguments),ignoreNulls)`. If the function doesn't require the field or the argument, then it's ignored. 
@@ -79,15 +79,15 @@ There are few functions which require the `field` and `argument` as per the synt
 | rank                    |   |       |
 | dense_rank              |   |       | 
 | percent_rank            |   |       | 
-| n_tile                  |   | required : an integer greater than 0     | 
+| n_tile                  |   | Required : an integer greater than 0     | 
 | row_number              |   |       | 
-| continous_percentile    | required  | required : a numeric between 0 and 1 (both inclusive) |
-| lead                    | required  | required : a non-negative integer     | 
-| lag                     | required  | required : a non-negative integer      | 
-| first                   | required  |       | 
-| last                    | required  |       | 
+| continous_percentile    | Required  | Required : a numeric between 0 and 1 (both inclusive) |
+| lead                    | Required  | Required : a non-negative integer     | 
+| lag                     | Required  | Required : a non-negative integer      | 
+| first                   | Required  |       | 
+| last                    | Required  |       | 
 | cumulative_distribution |   |       | 
-| accumulate              | required  |       | 
+| accumulate              | Required  |       | 
 
 
 Sample Pipeline Data
