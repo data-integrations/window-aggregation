@@ -41,6 +41,7 @@ public class WindowAggregationConfig extends PluginConfig {
   public static final String NAME_AGGREGATES = "aggregates";
   public static final String NAME_PARTITION_FIELD = "partitionFields";
   public static final String NAME_PARTITION_ORDER = "partitionOrder";
+  public static final String NAME_WINDOW_TYPE = "windowFrameType";
 
   @Macro
   @Description("Specifies a list of fields, comma-separated, to partition the data by. At least 1 field must be " +
@@ -298,33 +299,124 @@ public class WindowAggregationConfig extends PluginConfig {
     RANGE
   }
 
+  /**
+   * Clause constraint type.
+   * for Partition , Ordering and frame type. If each one them are Required, optional or not supported
+   */
+  protected enum ClauseConstraint {
+    REQUIRED,
+    OPTIONAL,
+    NOT_SUPPORTED
+  }
+
   enum Function {
-    RANK(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.INT))),
-    DENSE_RANK(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.INT))),
-    PERCENT_RANK(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.FLOAT))),
-    N_TILE(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.INT))),
-    ROW_NUMBER(null, Schema.nullableOf(Schema.of(Schema.Type.INT))),
-    MEDIAN(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
-    CONTINUOUS_PERCENTILE(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
-    DISCRETE_PERCENTILE(numericSchema(), null),
-    LEAD(null, null),
-    LAG(null, null),
-    FIRST(null, null),
-    LAST(null, null),
-    CUMULATIVE_DISTRIBUTION(numericSchema(), Schema.nullableOf(Schema.of(Schema.Type.DOUBLE))),
-    ACCUMULATE(numericSchema(), null);
+    RANK(
+      null,
+      Schema.nullableOf(Schema.of(Schema.Type.INT)),
+      ClauseConstraint.REQUIRED,
+      ClauseConstraint.REQUIRED,
+      ClauseConstraint.NOT_SUPPORTED),
+
+    DENSE_RANK(null,
+               Schema.nullableOf(Schema.of(Schema.Type.INT)),
+               ClauseConstraint.REQUIRED,
+               ClauseConstraint.REQUIRED,
+               ClauseConstraint.NOT_SUPPORTED),
+
+    PERCENT_RANK(null,
+                 Schema.nullableOf(Schema.of(Schema.Type.FLOAT)),
+                 ClauseConstraint.REQUIRED,
+                 ClauseConstraint.REQUIRED,
+                 ClauseConstraint.NOT_SUPPORTED),
+
+    N_TILE(WindowAggregationConfig.numericSchema(),
+           Schema.nullableOf(Schema.of(Schema.Type.INT)),
+           ClauseConstraint.REQUIRED,
+           ClauseConstraint.REQUIRED,
+           ClauseConstraint.NOT_SUPPORTED),
+
+    ROW_NUMBER(null,
+               Schema.nullableOf(Schema.of(Schema.Type.INT)),
+               ClauseConstraint.REQUIRED,
+               ClauseConstraint.REQUIRED,
+               ClauseConstraint.NOT_SUPPORTED),
+
+    MEDIAN(null,
+           Schema.nullableOf(Schema.of(Schema.Type.DOUBLE)),
+           ClauseConstraint.REQUIRED,
+           ClauseConstraint.REQUIRED,
+           ClauseConstraint.NOT_SUPPORTED),
+
+    CONTINUOUS_PERCENTILE(WindowAggregationConfig.numericSchema(),
+                          Schema.nullableOf(Schema.of(Schema.Type.DOUBLE)),
+                          ClauseConstraint.REQUIRED,
+                          ClauseConstraint.NOT_SUPPORTED,
+                          ClauseConstraint.NOT_SUPPORTED),
+
+    DISCRETE_PERCENTILE(WindowAggregationConfig.numericSchema(),
+                        null,
+                        ClauseConstraint.REQUIRED,
+                        ClauseConstraint.REQUIRED,
+                        ClauseConstraint.NOT_SUPPORTED),
+
+    LEAD(null,
+         null,
+         ClauseConstraint.REQUIRED,
+         ClauseConstraint.REQUIRED,
+         ClauseConstraint.NOT_SUPPORTED),
+
+    LAG(null,
+        null,
+        ClauseConstraint.REQUIRED,
+        ClauseConstraint.REQUIRED,
+        ClauseConstraint.NOT_SUPPORTED),
+
+    FIRST(null,
+          null,
+          ClauseConstraint.REQUIRED,
+          ClauseConstraint.REQUIRED,
+          ClauseConstraint.OPTIONAL),
+
+    LAST(null,
+         null,
+         ClauseConstraint.REQUIRED,
+         ClauseConstraint.REQUIRED,
+         ClauseConstraint.OPTIONAL),
+
+    CUMULATIVE_DISTRIBUTION(WindowAggregationConfig.numericSchema(),
+                            Schema.nullableOf(Schema.of(Schema.Type.DOUBLE)),
+                            ClauseConstraint.REQUIRED,
+                            ClauseConstraint.REQUIRED,
+                            ClauseConstraint.NOT_SUPPORTED),
+
+    ACCUMULATE(WindowAggregationConfig.numericSchema(),
+               null,
+               ClauseConstraint.REQUIRED,
+               ClauseConstraint.OPTIONAL,
+               ClauseConstraint.OPTIONAL);
 
     private Schema allowedInputSchema;
     private Schema outputSchema;
+
+    private ClauseConstraint partitioning;
+    private ClauseConstraint ordering;
+    private ClauseConstraint windowFrame;
 
     /**
      * @param allowedInputSchema allowed input field schema type where function can be applied,
      *                           if not defined all schema types are allowed.
      * @param outputSchema       if not defined, null, schema type of input field will be as output schema.
+     * @param partitioning       If partitioning is required/optional/not_supported
+     * @param ordering           If ordering is required/optional/not_supported
+     * @param windowFrame        If windowFrame is required/optional/not_supported
      */
-    Function(Schema allowedInputSchema, Schema outputSchema) {
+    Function(Schema allowedInputSchema, Schema outputSchema, ClauseConstraint partitioning, ClauseConstraint ordering,
+             ClauseConstraint windowFrame) {
       this.allowedInputSchema = allowedInputSchema;
       this.outputSchema = outputSchema;
+      this.partitioning = partitioning;
+      this.ordering = ordering;
+      this.windowFrame = windowFrame;
     }
 
     public Schema getAllowedInputSchema() {
@@ -341,6 +433,18 @@ public class WindowAggregationConfig extends PluginConfig {
 
     public void setOutputSchema(Schema outputSchema) {
       this.outputSchema = outputSchema;
+    }
+
+    public ClauseConstraint getPartitioning() {
+      return partitioning;
+    }
+
+    public ClauseConstraint getOrdering() {
+      return ordering;
+    }
+
+    public ClauseConstraint getWindowFrame() {
+      return windowFrame;
     }
   }
 
