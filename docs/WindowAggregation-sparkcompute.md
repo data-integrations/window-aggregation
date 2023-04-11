@@ -6,6 +6,10 @@ Description
 Specify a window over which functions should be applied.
 Supported functions: `Rank`, `Dense Rank`, `Percent Rank`, `N tile`, `Row Number`, `Median`, `Continuous Percentile`, `Lead`, `Lag`, `First`, `Last`, `Cumulative distribution`, `Accumulate`.
 
+BigQuery ELT Transformation Pushdown
+-----------
+Window aggregation stages are now eligible to execute in BigQuery when BigQuery ELT Transformation Pushdown is enabled in a pipeline. Window aggregation stages will be executed in BigQuery when a preceding stage has already been executed in BigQuery (such as a Join operation or another aggregation stage) or if the source is BigQuery. All the above mentioned functions are supported in BigQuery. 
+
 Use Case
 --------
 The transform is used when you want to calculate some basic aggregations in your data similar
@@ -49,31 +53,80 @@ field called `nextValue` that is the next value of current row in the group. The
 **Number of partitions:** Number of partitions to use when grouping fields. If not specified, the execution
 framework will decide on the number to use.
 
+----------
+**Clause Constraints:**
+
+| Function | Partition fields | Order | Frame Type | 
+| :------------ | :------: | :----- | :---------- |
+| rank                    | Required  | Required      | Not supported |
+| dense_rank              | Required  | Required      | Not supported |
+| percent_rank            | Required  | Required      | Not supported |
+| n_tile                  | Required  | Required      | Not supported |
+| row_number              | Required  | Required      | Not supported |
+| continous_percentile    | Required  | Not supported | Not supported |
+| lead                    | Required  | Required      | Not supported |
+| lag                     | Required  | Required      | Not supported |
+| first                   | Required  | Required      | Optional      |
+| last                    | Required  | Required      | Optional      |
+| cumulative_distribution | Required  | Required      | Not supported |
+| accumulate              | Required  | Optional      | Optional      |
+
+**Functions with Arguments:**
+There are few functions which require the `field` and `argument` as per the syntax `alias:function(field,encoded(arguments),ignoreNulls)`. If the function doesn't require the field or the argument, then it's ignored. 
+
+| Function | field  | argument  |
+| :------------ | :------: | :----- |
+| rank                    |   |       |
+| dense_rank              |   |       | 
+| percent_rank            |   |       | 
+| n_tile                  |   | Required : an integer greater than 0     | 
+| row_number              |   |       | 
+| continous_percentile    | Required  | Required : a numeric between 0 and 1 (both inclusive) |
+| lead                    | Required  | Required : a non-negative integer     | 
+| lag                     | Required  | Required : a non-negative integer      | 
+| first                   | Required  |       | 
+| last                    | Required  |       | 
+| cumulative_distribution |   |       | 
+| accumulate              | Required  |       | 
+
 
 Sample Pipeline Data
 ----------
-Input Records
+**Input Records**
 
-| Identifier | FirstName | LastName | Value |
-| :------------ | :------: | :----- | :---------- |
-| 1 | Jamie | Smith | 7280.9805|
-| 1 | Jamie | Smith | 6190.137|
-| 1 | Jamie | Smith | 3127.5457|
-| 1 | Jamie | Smith | 3127.5457|
-| 1 | Aj | Rizi | 5850.325|
-| 1 | Aj | Rizi | 7278.841|
-| 1 | Aj | Rizi | 3925.2046|
-| 1 | Aj | Rizi | 7116.509|
+|name  |age|location|
+|------|---|--------|
+|peter |20 |US      |
+|foo   |22 |US      |
+|rajeev|24 |US      |
+|john  |28 |US      |
+|alex  |30 |US      |
+|ravi  |20 |INDIA   |
+|kenny |30 |INDIA   |
 
-Output Records
+**Window Aggregations Config**
 
-| Identifier | FirstName | LastName | Value     | aliasDiscPercent | 
-| :--------: | :-------: | :------: | :-------- |:---------------- |
-| 1          | Jamie     | Smith    | 7280.9805 | 3925.2046 | 
-| 1          | Jamie     | Smith    | 6190.137  | 3127.5457 | 
-| 1          | Jamie     | Smith    | 3127.5457 | 3127.5457 | 
-| 1          | Jamie     | Smith    | 3127.5457 | 3925.2046 | 
-| 1          | Aj        | Rizi     | 5850.325  | 3127.5457 | 
-| 1          | Aj        | Rizi     | 7278.841  | 3925.2046 | 
-| 1          | Aj        | Rizi     | 3925.2046 | 3127.5457 | 
-| 1          | Aj        | Rizi     | 7116.509  | 3925.2046 | 
+Partition fields : `location`
+
+Order : `age:ascending`
+
+Frame Type : `None`
+
+Aggregates :
+
+`my_rank: rank(,,true)`
+
+`next_value:lead(age,1,false)`
+
+**Output Records**
+
+|name  |age|location|my_rank|next_value|
+|------|---|--------|-------|----------|
+|peter |20 |US      |1      |22        |
+|foo   |22 |US      |2      |24        |
+|rajeev|24 |US      |3      |28        |
+|john  |28 |US      |4      |30        |
+|alex  |30 |US      |5      |          |
+|ravi  |20 |INDIA   |1      |30        |
+|kenny |30 |INDIA   |2      |          |
+
