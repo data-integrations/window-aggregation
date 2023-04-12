@@ -43,6 +43,7 @@ import io.cdap.cdap.etl.api.relational.Relation;
 import io.cdap.cdap.etl.api.relational.RelationalTranformContext;
 import io.cdap.cdap.etl.api.relational.StringExpressionFactoryType;
 import io.cdap.cdap.etl.proto.validation.SimpleFailureCollector;
+import io.cdap.cdap.features.Feature;
 import org.apache.spark.api.java.JavaRDD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -661,6 +662,10 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
 
   @Override
   public Relation transform(RelationalTranformContext relationalTranformContext, Relation relation) {
+    if (!Feature.PUSHDOWN_TRANSFORMATION_WINDOWAGGREGATION.isEnabled(relationalTranformContext)) {
+      return new InvalidRelation("Pushdown Transformation feature is not available");
+    }
+    FailureCollector failureCollector = new SimpleFailureCollector();
     // If the expression factory is not present, this aggregation cannot be handled by the plugin.
     Optional<ExpressionFactory<String>> expressionFactory = getExpressionFactory(relationalTranformContext,
       config);
