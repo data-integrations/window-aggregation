@@ -174,7 +174,13 @@ public class WindowAggregationConfig extends PluginConfig {
     return Long.parseLong(following);
   }
 
-  public List<FunctionInfo> getAggregates(FailureCollector failureCollector) {
+  // Use this function to Get aggregates only after validation is complete.
+  // i.e. without a Failure collector.
+  public List<FunctionInfo> getAggregates() {
+    return getAggregates(null);
+  }
+
+  public List<FunctionInfo> getAggregates(@Nullable FailureCollector failureCollector) {
     List<FunctionInfo> functionInfos = new ArrayList<>();
     if (containsMacro(NAME_AGGREGATES)) {
       return functionInfos;
