@@ -29,12 +29,14 @@
     <data.pipeline.parent>system:cdap-data-pipeline[6.9.0-SNAPSHOT,7.0.0-SNAPSHOT)</data.pipeline.parent>
     <data.stream.parent>system:cdap-data-streams[6.9.0-SNAPSHOT,7.0.0-SNAPSHOT)</data.stream.parent>
 
-    <cdap.version>6.9.0-SNAPSHOT</cdap.version>
+    <cdap.version>6.10.0-SNAPSHOT</cdap.version>
     <spark.version>3.1.1</spark.version>
     <logback.version>1.0.9</logback.version>
     <guava.version>13.0.1</guava.version>
+    <slf4j.version>1.7.5</slf4j.version>
 
     <surefire.redirectTestOutputToFile>true</surefire.redirectTestOutputToFile>
+    <testSourceLocation>${project.basedir}/src/test/java/</testSourceLocation>
   </properties>
 
   <pluginRepositories>
@@ -43,6 +45,29 @@
       <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
     </pluginRepository>
   </pluginRepositories>
+
+  <repositories>
+    <repository>
+      <id>sonatype</id>
+      <url>https://oss.sonatype.org/content/groups/public</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>sonatype-snapshots</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
 
   <dependencies>
     <dependency>
@@ -147,9 +172,21 @@
       <artifactId>guava</artifactId>
       <version>${guava.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>jcl-over-slf4j</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
+    <testSourceDirectory>${testSourceLocation}</testSourceDirectory>
     <plugins>
       <plugin>
         <groupId>org.apache.rat</groupId>
@@ -178,6 +215,7 @@
             <configuration>
               <excludes>
                 <exclude>LICENSE*.txt</exclude>
+                <exclude>**/*.csv</exclude>
                 <exclude>*.rst</exclude>
                 <exclude>*.md</exclude>
                 <exclude>**/*.yaml</exclude>
@@ -245,6 +283,7 @@
           </systemPropertyVariables>
           <includes>
             <include>**/*TestSuite.java</include>
+            <include>**/Test*.java</include>
             <include>**/*Test.java</include>
           </includes>
           <excludes>
@@ -306,5 +345,99 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>e2e-tests</id>
+      <properties>
+        <testSourceLocation>src/e2e-test/java</testSourceLocation>
+        <TEST_RUNNER>TestRunner.java</TEST_RUNNER>
+      </properties>
+      <build>
+        <testResources>
+          <testResource>
+            <directory>src/e2e-test/resources</directory>
+          </testResource>
+        </testResources>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>2.18.1</version>
+            <configuration>
+              <skipTests>true</skipTests>
+            </configuration>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>3.0.0-M5</version>
+            <configuration>
+              <includes>
+                <include>${TEST_RUNNER}</include>
+              </includes>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>net.masterthought</groupId>
+            <artifactId>maven-cucumber-reporting</artifactId>
+            <version>5.5.0</version>
+
+            <executions>
+              <execution>
+                <id>execution</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+                <configuration>
+                  <projectName>window-aggregation</projectName> <!-- Replace with project name -->
+                  <outputDirectory>target/cucumber-reports/advanced-reports</outputDirectory>
+                  <buildNumber>1</buildNumber>
+                  <skip>false</skip>
+                  <inputDirectory>${project.build.directory}/cucumber-reports</inputDirectory>
+                  <jsonFiles> <!-- supports wildcard or name pattern -->
+                    <param>**/*.json</param>
+                  </jsonFiles> <!-- optional, defaults to outputDirectory if not specified -->
+                  <classificationDirectory>${project.build.directory}/cucumber-reports</classificationDirectory>
+                  <checkBuildResult>true</checkBuildResult>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+
+      <dependencies>
+        <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>31.1-jre</version>
+        </dependency>
+        <dependency>
+          <groupId>io.cdap.tests.e2e</groupId>
+          <artifactId>cdap-e2e-framework</artifactId>
+          <version>0.3.0-SNAPSHOT</version>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+          <version>1.2.8</version>
+          <scope>runtime</scope>
+        </dependency>
+      </dependencies>
+
+    </profile>
+  </profiles>
 </project>
 
