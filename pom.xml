@@ -29,7 +29,7 @@
     <data.pipeline.parent>system:cdap-data-pipeline[6.9.0-SNAPSHOT,7.0.0-SNAPSHOT)</data.pipeline.parent>
     <data.stream.parent>system:cdap-data-streams[6.9.0-SNAPSHOT,7.0.0-SNAPSHOT)</data.stream.parent>
 
-    <cdap.version>6.10.0-SNAPSHOT</cdap.version>
+    <cdap.version>6.10.0</cdap.version>
     <spark.version>3.1.1</spark.version>
     <logback.version>1.0.9</logback.version>
     <guava.version>13.0.1</guava.version>
