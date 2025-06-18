@@ -37,6 +37,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -124,7 +125,7 @@ public class WindowAggregationTest {
     sparkExecutionPluginContext = mock(SparkExecutionPluginContext.class);
     Mockito.when(sparkExecutionPluginContext.getFailureCollector()).thenReturn(failureCollector);
     Mockito.when(sparkExecutionPluginContext.getInputSchema()).thenReturn(schema);
-    function.setOutputSchema(schema);
+    functionInfo.setOutputSchema(schema);
     stageConfigurer = mock(StageConfigurer.class);
     pipelineConfigurer = mock(PipelineConfigurer.class);
     Mockito.when(pipelineConfigurer.getStageConfigurer()).thenReturn(stageConfigurer);
@@ -342,5 +343,24 @@ public class WindowAggregationTest {
         windowAggregation.getColumnSelectionExpression(func, "colname"));
   }
 
+  @Test
+  public void getLeadFunctionSchema_multiple_fields() throws IOException {
+    String schema = "{\"type\":\"record\",\"name\":\"fileRecord\",\"fields\":[{\"name\":\"field2\",\"type\":\"int\"}" +
+      ",{\"name\":\"field\",\"type\":\"string\"}]}";
+    Schema inputSchema = Schema.parseJson(schema);
+    WindowAggregationConfig windowAggregationConfig = new WindowAggregationConfig("field", "field:asc",
+                                                                                  null, null, null, null, null,
+                                                                                  "prevField:lead(field,1,false)\n" +
+                                                                                    "prevField2:lead(field2,1,false)",
+                                                                                  null, schema);
+    List<WindowAggregationConfig.FunctionInfo> aggregates = windowAggregationConfig.getAggregates(failureCollector);
+    WindowAggregation windowAggregation = new WindowAggregation(windowAggregationConfig);
+    windowAggregation.validate(inputSchema, failureCollector, aggregates);
+    Schema outputSchema = windowAggregation.getOutputSchema(inputSchema, aggregates);
+    Assert.assertEquals(outputSchema.getFields().size(), 4);
+    Assert.assertEquals(outputSchema.getField("field").getSchema(),
+                        outputSchema.getField("prevField").getSchema());
+    Assert.assertEquals(outputSchema.getField("field2").getSchema(),
+                        outputSchema.getField("prevField2").getSchema());
+  }
 }
-

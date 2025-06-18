@@ -16,6 +16,7 @@
 
 package io.cdap.plugin;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -107,6 +108,24 @@ public class WindowAggregationConfig extends PluginConfig {
   @Nullable
   @Description("Specifies the schema of the records outputted from this plugin.")
   private String schema;
+
+  @VisibleForTesting
+  public WindowAggregationConfig(String partitionFields, @Nullable String partitionOrder,
+                                 @Nullable String windowFrameType, @Nullable Boolean unboundedPreceding,
+                                 @Nullable Boolean unboundedFollowing, @Nullable String preceding,
+                                 @Nullable String following, String aggregates, @Nullable String numberOfPartitions,
+                                 @Nullable String schema) {
+    this.partitionFields = partitionFields;
+    this.partitionOrder = partitionOrder;
+    this.windowFrameType = windowFrameType;
+    this.unboundedPreceding = unboundedPreceding;
+    this.unboundedFollowing = unboundedFollowing;
+    this.preceding = preceding;
+    this.following = following;
+    this.aggregates = aggregates;
+    this.numberOfPartitions = numberOfPartitions;
+    this.schema = schema;
+  }
 
   private static Schema numericSchema() {
     return Schema.unionOf(Schema.of(Schema.Type.INT), Schema.of(Schema.Type.DOUBLE), Schema.of(Schema.Type.LONG),
@@ -431,10 +450,6 @@ public class WindowAggregationConfig extends PluginConfig {
       return outputSchema;
     }
 
-    public void setOutputSchema(Schema outputSchema) {
-      this.outputSchema = outputSchema;
-    }
-
     public ClauseConstraint getPartitioning() {
       return partitioning;
     }
@@ -457,6 +472,9 @@ public class WindowAggregationConfig extends PluginConfig {
     private final String alias;
     private final String[] args;
     private final boolean ignoreNull;
+    // Added 'schema' of Function enum to 'FunctionInfo' also because its value can be dynamic for some instances,
+    // and storing it directly in the enum caused unintended sharing across objects.
+    private Schema outputSchema;
 
     public FunctionInfo(String alias, Function function, String fieldName, String[] arguments, String ignoreNulls) {
       this.alias = alias;
@@ -464,6 +482,7 @@ public class WindowAggregationConfig extends PluginConfig {
       this.fieldName = fieldName;
       this.args = arguments;
       this.ignoreNull = !"false".equals(ignoreNulls);
+      this.outputSchema = function.getOutputSchema();
     }
 
     public Function getFunction() {
@@ -489,6 +508,14 @@ public class WindowAggregationConfig extends PluginConfig {
     public String description() {
       return String.format("%s:%s(%s,%s,%s)", getAlias(), getFunction().name(), getFieldName(),
         Joiner.on(",").join(args), ignoreNull);
+    }
+
+    public Schema getOutputSchema() {
+      return outputSchema;
+    }
+
+    public void setOutputSchema(Schema outputSchema) {
+      this.outputSchema = outputSchema;
     }
   }
 }

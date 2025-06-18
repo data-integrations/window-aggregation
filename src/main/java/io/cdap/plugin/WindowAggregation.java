@@ -132,7 +132,7 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     stageConfigurer.setOutputSchema(getOutputSchema(inputSchema, aggregates));
   }
 
-  private void validate(Schema inputSchema, FailureCollector collector,
+  protected void validate(Schema inputSchema, FailureCollector collector,
                         List<WindowAggregationConfig.FunctionInfo> aggregates) {
     List<String> partitionFields = config.getPartitionFields();
     List<String> partitionOrderFields = config.getPartitionOrderFields();
@@ -188,8 +188,8 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
         }
       }
 
-      if (function.getOutputSchema() == null && inputFieldSchema != null) {
-        function.setOutputSchema(inputFieldSchema);
+      if (functionInfo.getOutputSchema() == null && inputFieldSchema != null) {
+       functionInfo.setOutputSchema(inputFieldSchema);
       }
     }
 
@@ -358,14 +358,14 @@ public class WindowAggregation extends SparkCompute<StructuredRecord, Structured
     }
   }
 
-  private Schema getOutputSchema(Schema inputSchema, List<WindowAggregationConfig.FunctionInfo> aggregates) {
+  protected Schema getOutputSchema(Schema inputSchema, List<WindowAggregationConfig.FunctionInfo> aggregates) {
     List<Schema.Field> outputFields = new ArrayList<>(aggregates.size());
     List<Schema.Field> inputSchemaFields = inputSchema.getFields();
     if (inputSchemaFields != null) {
       outputFields.addAll(inputSchemaFields);
     }
     for (WindowAggregationConfig.FunctionInfo aggregate : aggregates) {
-      outputFields.add(Schema.Field.of(aggregate.getAlias(), aggregate.getFunction().getOutputSchema()));
+      outputFields.add(Schema.Field.of(aggregate.getAlias(), aggregate.getOutputSchema()));
     }
     return Schema.recordOf(inputSchema.getRecordName() + ".window", outputFields);
   }
