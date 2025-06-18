@@ -43,7 +43,7 @@ jobs:
       fail-fast: false
     steps:
     # Pinned 1.0.0 version
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         path: plugin
     - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
@@ -56,34 +56,33 @@ jobs:
           e2e-test:
             - '**/e2e-test/**'
     - name: Checkout e2e test repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: cdapio/cdap-e2e-tests
         path: e2e
     - name: Cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-${{ github.workflow }}-${{ hashFiles('**/pom.xml') }}
         restore-keys: |
           ${{ runner.os }}-maven-${{ github.workflow }}
     - name: Run all e2e tests
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || steps.filter.outputs.e2e-test == 'true'
       run: python3 e2e/src/main/scripts/run_e2e_test.py
     - name: Upload report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: Cucumber report - window aggregation
         path: ./plugin/target/cucumber-reports
     - name: Upload debug files
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: Debug files - window aggregation
         path: ./**/target/e2e-debug
     - name: Upload files to GCS
-      uses: google-github-actions/upload-cloud-storage@v0
+      uses: google-github-actions/upload-cloud-storage@v2
       if: always()
       with:
         path: ./plugin/target/cucumber-reports
